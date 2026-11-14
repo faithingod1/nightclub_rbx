@@ -96,17 +96,18 @@ GuestLayer.Parent = WorldCanvas
 local HoverTile = Instance.new("Frame")
 HoverTile.Name = "HoverTile"
 HoverTile.AnchorPoint = Vector2.new(0.5, 0.5)
-HoverTile.Size = UDim2.fromOffset(68, 68)
-HoverTile.Rotation = 45
+HoverTile.Size = UDim2.fromOffset(128, 64)
+HoverTile.Rotation = 0
 HoverTile.BorderSizePixel = 0
 HoverTile.BackgroundColor3 = Color3.fromRGB(0, 255, 200)
-HoverTile.BackgroundTransparency = 0.65
+HoverTile.BackgroundTransparency = 1
 HoverTile.Visible = false
 HoverTile.ZIndex = 80000
 HoverTile.Parent = CursorLayer
+ClubArt.cursor(HoverTile)
 
 local HoverStroke = Instance.new("UIStroke")
-HoverStroke.Thickness = 2.5
+HoverStroke.Thickness = 0
 HoverStroke.Color = Color3.fromRGB(0, 255, 200)
 HoverStroke.Transparency = 0.1
 HoverStroke.Parent = HoverTile
@@ -360,6 +361,7 @@ function updateHoverCursor()
 end
 
 -- World Rebuild (Tiles & Placed Items)
+local PulsePads: { Frame } = {}
 local lastLayout = ""
 function rebuildWorld()
 	local entries = { tostring(CurrentState.GridWidth), tostring(CurrentState.GridHeight), MovingItemUid or "" }
@@ -368,6 +370,7 @@ function rebuildWorld()
 	local signature = table.concat(entries, "|")
 	if signature == lastLayout then updateHoverCursor(); return end
 	lastLayout = signature
+	table.clear(PulsePads)
 	TileLayer:ClearAllChildren()
 	ObjectLayer:ClearAllChildren()
 	ClubArt.room(TileLayer, CurrentState.GridWidth, CurrentState.GridHeight)
@@ -405,7 +408,9 @@ function rebuildWorld()
 			selectStroke.Parent = itemBtn
 		end
 
-		if def.AssetId == "" then ClubArt.furniture(itemBtn, def) end
+		if def.AssetId == "" then
+			for _, band in ClubArt.furniture(itemBtn, def) do table.insert(PulsePads, band) end
+		end
 		if isBeingMoved then
 			for _, child in itemBtn:GetDescendants() do
 				if child:IsA("Frame") then child.BackgroundTransparency = 0.6 end
@@ -920,6 +925,7 @@ end
 
 local danceUntil: { [number]: number } = {}
 local hudElapsed = 0
+local lightElapsed = 0
 local renderConnection = RunService.RenderStepped:Connect(function(dt: number)
 	hudElapsed += dt
 	if hudElapsed >= 1 then

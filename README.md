@@ -194,3 +194,19 @@ multi-server DataStore behavior remain unverified.** Before publishing, use two
 friend accounts in a test experience: visit and return, tip across servers, rejoin
 to confirm saved layout/genre/cash/mission state, and close a server during a save.
 The entire game remains ScreenGui-based with CharacterAutoLoads disabled.
+
+
+## Phase 6: procedural visual remake
+
+ClubArt.luau draws a 2:1 floor, streets, walls, city facades, detailed furniture,
+and shop illustrations from UI shapes. Empty assets have procedural fallbacks;
+configured furniture images remain supported. Dance lighting updates at 10 Hz.
+Guests have larger heads, varied skin tones, four hair/headphone styles, and
+animated limbs. Ordinary labels appear only when happiness needs attention.
+Room geometry is cached across economic updates; layout edits still rebuild it.
+The hover cursor matches the 128x64 tile diamond.
+
+This is an original procedural interpretation of the references. Painted sprite
+art remains a future art pass. Studio's UI connection was unavailable: room
+framing, depth ordering, small-screen controls, and maximum-club performance need
+Studio review. Band-based polygons trade extra UI instances for asset-free art.

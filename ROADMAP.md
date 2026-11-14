@@ -14,3 +14,5 @@ Add a DJ Genre Selector modal (`Electro`, `HipHop`, `SynthPop`) hooked up to `So
 
 ## Phase 5 — DataStoreService Save/Load & Visiting Friends' Clubs [COMPLETED]
 Create `src/server/DataManager.luau` using `DataStoreService` with session locking and `BindToClose` auto-save for `ClubState`. Add a Friends Bar along the bottom HUD (just like the Facebook original) that fetches online/saved club layouts so players can visit a friend's 2D club and tip their DJ booth.
+## Phase 6 ? Visual Remake & Playable Polish [IMPLEMENTED ? STUDIO REVIEW PENDING]
+Procedural 2:1 room floor, back walls, city facades and streets; recognizable furniture and animated dance pads; varied big-headed cartoon guests; illustrated shop cards and quieter guest labels. Cache room rendering across economic updates. Studio visual and performance review remains pending.

@@ -1,4 +1,4 @@
-﻿--!strict
+--!strict
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Iso = require(Shared:WaitForChild("IsometricMath"))
@@ -26,6 +26,7 @@ local function line(parent: Instance, a: Vector2, b: Vector2, color: Color3, z: 
 end
 -- Convex UI polygons use horizontal bands; no uploaded image is required.
 local function polygon(parent: Instance, points: { Vector2 }, color: Color3, z: number)
+	local bands: { Frame } = {}
 	local low, high = math.huge, -math.huge
 	for _, p in points do low = math.min(low, p.Y); high = math.max(high, p.Y) end
 	for y = low, high - 0.01, 2 do
@@ -39,8 +40,9 @@ local function polygon(parent: Instance, points: { Vector2 }, color: Color3, z: 
 				left, right = math.min(left,x), math.max(right,x)
 			end
 		end
-		if right > left then rect(parent,left,y,right-left,height,color,z) end
+		if right > left then table.insert(bands, rect(parent,left,y,right-left,height,color,z)) end
 	end
+	return bands
 end
 local function text(parent: Instance, value: string, x: number, y: number, w: number, h: number, z: number, color: Color3?)
 	local t = Instance.new("TextLabel")
@@ -51,7 +53,7 @@ local function text(parent: Instance, value: string, x: number, y: number, w: nu
 	t.Parent = parent
 end
 local function diamond(parent: Instance, x: number, y: number, w: number, h: number, color: Color3, z: number)
-	polygon(parent,{Vector2.new(x,y-h/2),Vector2.new(x+w/2,y),Vector2.new(x,y+h/2),Vector2.new(x-w/2,y)},color,z)
+	return polygon(parent,{Vector2.new(x,y-h/2),Vector2.new(x+w/2,y),Vector2.new(x,y+h/2),Vector2.new(x-w/2,y)},color,z)
 end
 
 function Art.room(parent: Instance, width: number, height: number)
@@ -100,15 +102,14 @@ function Art.room(parent: Instance, width: number, height: number)
 	end
 end
 
-function Art.furniture(parent: GuiObject, def: Types.ItemDef)
+function Art.furniture(parent: GuiObject, def: Types.ItemDef): { Frame }
 	local z = parent.ZIndex
 	local c = def.FallbackColor
 	local category = def.Category
 	if category == "DancePad" then
 		diamond(parent,64,32,126,62,rgb(16,23,37),z)
 		diamond(parent,64,30,104,48,c,z)
-		diamond(parent,64,30,78,34,c:Lerp(rgb(255,255,255),0.5),z)
-		return
+		return diamond(parent,64,30,78,34,c:Lerp(rgb(255,255,255),0.5),z)
 	end
 	local function box(x: number,y: number,w: number,h: number,tint: Color3)
 		rect(parent,x,y,w,h,tint,z,4)
@@ -156,5 +157,11 @@ function Art.furniture(parent: GuiObject, def: Types.ItemDef)
 		line(parent,Vector2.new(13,32),Vector2.new(72,32),rgb(210,78,104),z,6)
 		text(parent,"SECURITY",7,77,70,20,z)
 	end
+	return {}
+end
+
+function Art.cursor(parent: GuiObject)
+	local points = {Vector2.new(64,0),Vector2.new(128,32),Vector2.new(64,64),Vector2.new(0,32)}
+	for i,a in points do line(parent,a,points[i%4+1],rgb(70,255,210),parent.ZIndex,3) end
 end
 return Art

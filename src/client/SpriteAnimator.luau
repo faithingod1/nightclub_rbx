@@ -3,6 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Types = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Types"))
 
 local SpriteAnimator = {}
+local styleIndex = 0
 
 function SpriteAnimator.new(parent: Instance, sheet: Types.SpriteSheet, color: Color3, isVIP: boolean): Types.SpriteAnimator
 	for name, clip in sheet.Clips do
@@ -11,6 +12,10 @@ function SpriteAnimator.new(parent: Instance, sheet: Types.SpriteSheet, color: C
 		assert(clip.FPS > 0 and clip.FPS < math.huge, name .. ": invalid FPS")
 	end
 	assert(sheet.Clips.Idle, "Sprite sheet requires an Idle clip")
+	styleIndex += 1
+	local style = styleIndex % 4
+	local skin = ({ Color3.fromRGB(241,189,140), Color3.fromRGB(191,132,89), Color3.fromRGB(119,77,59), Color3.fromRGB(232,174,130) })[style+1]
+	local hair = ({ Color3.fromRGB(38,30,44), Color3.fromRGB(125,64,38), Color3.fromRGB(222,182,63), Color3.fromRGB(65,41,96) })[style+1]
 	local root = Instance.new("Frame")
 	root.Name = "CartoonGuest"
 	root.AnchorPoint = Vector2.new(0.5, 1)
@@ -56,10 +61,21 @@ function SpriteAnimator.new(parent: Instance, sheet: Types.SpriteSheet, color: C
 	local rightArm = shape("RightArm", 39, 34, 9, 24, color, 5)
 	shape("Shirt", 15, 32, 26, 28, color, 8)
 	shape("ShirtShine", 19, 35, 4, 17, color:Lerp(Color3.new(1, 1, 1), 0.45), 2)
-	shape("Face", 14, 8, 28, 28, Color3.fromRGB(241, 189, 140), 12)
-	shape("Hair", 13, 5, 30, 12, Color3.fromRGB(50, 32, 48), 7)
-	shape("LeftEye", 21, 21, 3, 4, Color3.fromRGB(40, 30, 45), 2)
-	shape("RightEye", 32, 21, 3, 4, Color3.fromRGB(40, 30, 45), 2)
+	shape("FaceOutline", 8, 1, 40, 38, Color3.fromRGB(31,26,37), 18)
+	shape("Face", 10, 3, 36, 34, skin, 16)
+	shape("Hair", 8, 0, 40, 14, hair, 9)
+	if style == 0 then shape("Fringe", 9, 8, 18, 13, hair, 5).Rotation = -18
+	elseif style == 1 then shape("SideHair", 36, 8, 12, 27, hair, 6)
+	elseif style == 2 then
+		for i=0,3 do shape("Spikes", 11+i*9, -4-(i%2)*3, 10, 13, hair, 3).Rotation = -16+i*9 end
+	else
+		shape("HeadphonesLeft", 5, 14, 7, 17, color, 4)
+		shape("HeadphonesRight", 44, 14, 7, 17, color, 4)
+	end
+	shape("LeftEyeWhite", 17, 17, 10, 10, Color3.new(1,1,1), 5)
+	shape("LeftEye", 21, 19, 5, 7, Color3.fromRGB(40,30,45), 3)
+	shape("RightEyeWhite", 30, 17, 10, 10, Color3.new(1,1,1), 5)
+	shape("RightEye", 33, 19, 5, 7, Color3.fromRGB(40,30,45), 3)
 	shape("Smile", 25, 29, 7, 2, Color3.fromRGB(150, 75, 65), 1)
 	if isVIP then
 		shape("VIPBadge", 26, 39, 7, 7, Color3.fromRGB(255, 219, 80), 2)

@@ -381,6 +381,7 @@ function GuestController.new(parent: Instance, initialState: Types.ClubState): T
 				elseif g.IsVIP then "HIGH ROLLER"
 				else string.format("%s | %d%%", g.Mode, math.round(g.Happiness))
 			g.Status.Text = text
+			g.Status.Visible = g.IsVIP or g.IsRowdy or g.Happiness < 60 or g.Mode == "Queueing"
 			g.Status.TextColor3 = if g.IsRowdy or g.Happiness < 40 then Color3.fromRGB(255, 120, 125)
 				elseif g.IsVIP then Color3.fromRGB(255, 219, 80) else Color3.fromRGB(180, 255, 206)
 			render(g.Animator, g.Status, g.GX, g.GY, if moving then "Walk" elseif g.Mode == "Dancing" or g.Mode == "RowdyCrasher" then "Dance" else "Idle", dt)

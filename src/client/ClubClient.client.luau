@@ -35,6 +35,7 @@ local CurrentState: Types.ClubState = GetStateFn:InvokeServer()
 local Guests: { Types.GuestEntity } = {}
 local SpriteAnimator = require(script.Parent:WaitForChild("SpriteAnimator"))
 local GlossyUI = require(script.Parent:WaitForChild("GlossyUI"))
+local ClubArt = require(script.Parent:WaitForChild("ClubArt"))
 local Animators: { [number]: Types.SpriteAnimator } = {}
 
 -- Viewport Zoom constants
@@ -359,27 +360,17 @@ function updateHoverCursor()
 end
 
 -- World Rebuild (Tiles & Placed Items)
+local lastLayout = ""
 function rebuildWorld()
+	local entries = { tostring(CurrentState.GridWidth), tostring(CurrentState.GridHeight), MovingItemUid or "" }
+	for uid, item in CurrentState.PlacedItems do table.insert(entries, uid .. item.ItemId .. ":" .. item.GX .. ":" .. item.GY) end
+	table.sort(entries)
+	local signature = table.concat(entries, "|")
+	if signature == lastLayout then updateHoverCursor(); return end
+	lastLayout = signature
 	TileLayer:ClearAllChildren()
 	ObjectLayer:ClearAllChildren()
-
-	for gx = 1, CurrentState.GridWidth do
-		for gy = 1, CurrentState.GridHeight do
-			local pos = Iso.gridToScreen(gx, gy)
-			local tile = Instance.new("Frame")
-			tile.AnchorPoint = Vector2.new(0.5, 0.5)
-			tile.Position = UDim2.fromOffset(pos.X, pos.Y)
-			tile.Size = UDim2.fromOffset(68, 68)
-			tile.Rotation = 45
-			tile.BackgroundColor3 = if (gx + gy) % 2 == 0
-				then Color3.fromRGB(32, 28, 56)
-				else Color3.fromRGB(26, 22, 46)
-			tile.BorderColor3 = Color3.fromRGB(68, 60, 110)
-			tile.BorderSizePixel = 1
-			tile.ZIndex = Iso.getZIndex(gx, gy, 1)
-			tile.Parent = TileLayer
-		end
-	end
+	ClubArt.room(TileLayer, CurrentState.GridWidth, CurrentState.GridHeight)
 
 	for _, placed in CurrentState.PlacedItems do
 		local def = GameConfig.ITEMS[placed.ItemId]
@@ -393,12 +384,10 @@ function rebuildWorld()
 		local itemBtn = Instance.new("ImageButton")
 		itemBtn.AnchorPoint = Vector2.new(0.5, 1)
 		itemBtn.Position = UDim2.fromOffset(pos.X, pos.Y + GameConfig.TILE_HEIGHT * 0.35)
-		itemBtn.Size = UDim2.fromOffset(88, def.HeightPx)
+		itemBtn.Size = if def.Category == "DancePad" then UDim2.fromOffset(128,64) else UDim2.fromOffset(88, def.HeightPx)
+		if def.Category == "DancePad" then itemBtn.Position = UDim2.fromOffset(pos.X,pos.Y+32) end
 		itemBtn.BackgroundColor3 = def.FallbackColor
-		itemBtn.BackgroundTransparency = if isBeingMoved
-			then 0.75
-			elseif def.AssetId ~= "" then 1
-			else 0.12
+		itemBtn.BackgroundTransparency = 1
 		itemBtn.Image = def.AssetId
 		itemBtn.BorderSizePixel = 0
 		itemBtn.AutoButtonColor = false
@@ -416,15 +405,12 @@ function rebuildWorld()
 			selectStroke.Parent = itemBtn
 		end
 
-		local tag = Instance.new("TextLabel")
-		tag.Size = UDim2.fromScale(1, 0.35)
-		tag.BackgroundTransparency = 1
-		tag.Text = def.Name
-		tag.TextScaled = true
-		tag.Font = Enum.Font.GothamBold
-		tag.TextColor3 = Color3.new(1, 1, 1)
-		tag.ZIndex = itemBtn.ZIndex + 1
-		tag.Parent = itemBtn
+		if def.AssetId == "" then ClubArt.furniture(itemBtn, def) end
+		if isBeingMoved then
+			for _, child in itemBtn:GetDescendants() do
+				if child:IsA("Frame") then child.BackgroundTransparency = 0.6 end
+			end
+		end
 
 		-- Direct item click handler for Move and Remove
 		itemBtn.Activated:Connect(function()
@@ -680,20 +666,20 @@ local function makeShelfCard(itemId: string)
 	cStroke.Parent = card
 
 	local swatch = Instance.new("Frame")
-	swatch.Size = UDim2.fromOffset(18, 18)
-	swatch.Position = UDim2.fromOffset(8, 8)
-	swatch.BackgroundColor3 = def.FallbackColor
-	swatch.BorderSizePixel = 0
+	swatch.Size = UDim2.fromOffset(88, def.HeightPx)
+	swatch.Position = UDim2.fromOffset(6, 3)
+	swatch.BackgroundTransparency = 1
 	swatch.ZIndex = 90002
 	swatch.Parent = card
-
-	local swCorner = Instance.new("UICorner")
-	swCorner.CornerRadius = UDim.new(0, 4)
-	swCorner.Parent = swatch
+	local scale = Instance.new("UIScale")
+	scale.Scale = 0.42
+	scale.Parent = swatch
+	ClubArt.furniture(swatch, def)
 
 	local nameLabel = Instance.new("TextLabel")
-	nameLabel.Size = UDim2.new(1, -34, 0, 18)
-	nameLabel.Position = UDim2.fromOffset(30, 8)
+	nameLabel.Size = UDim2.new(1, -52, 0, 32)
+	nameLabel.Position = UDim2.fromOffset(48, 4)
+	nameLabel.TextWrapped = true
 	nameLabel.BackgroundTransparency = 1
 	nameLabel.Text = def.Name
 	nameLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -706,7 +692,7 @@ local function makeShelfCard(itemId: string)
 
 	local costLabel = Instance.new("TextLabel")
 	costLabel.Size = UDim2.new(1, -16, 0, 16)
-	costLabel.Position = UDim2.fromOffset(8, 38)
+	costLabel.Position = UDim2.fromOffset(8, 46)
 	costLabel.BackgroundTransparency = 1
 	costLabel.Text = string.format("$%d  •  %s", def.Cost, def.Category)
 	costLabel.TextXAlignment = Enum.TextXAlignment.Left

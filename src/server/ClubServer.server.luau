@@ -8,6 +8,7 @@ Players.CharacterAutoLoads = false
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Types = require(Shared:WaitForChild("Types"))
 local GameConfig = require(Shared:WaitForChild("GameConfig"))
+local Appearance = require(Shared:WaitForChild("Appearance"))
 
 local Remotes = Instance.new("Folder")
 Remotes.Name = "ClubRemotes"
@@ -143,7 +144,13 @@ ActionFn.OnServerInvoke = function(player: Player, action: string, payload: { [s
 	if os.clock() - (LastAction[player] or -10) < 0.15 then return false, "Please wait a moment" end
 	LastAction[player] = os.clock()
 
-	if action == "SetGenre" then
+	if action == "SetAppearance" then
+		local selection = Appearance.validate(payload.Appearance)
+		if not selection then return false, "Choose valid character options" end
+		state.Appearance = selection
+		StateUpdatedEv:FireClient(player, state)
+		return true, "Character saved"
+	elseif action == "SetGenre" then
 		if typeof(payload.Genre) ~= "string" or not GameConfig.MUSIC_GENRES[payload.Genre] then return false, "Unknown genre" end
 		state.ActiveGenre = payload.Genre
 		StateUpdatedEv:FireClient(player, state)

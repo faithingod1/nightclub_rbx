@@ -36,7 +36,11 @@ local Guests: { Types.GuestEntity } = {}
 local SpriteAnimator = require(script.Parent:WaitForChild("SpriteAnimator"))
 local GlossyUI = require(script.Parent:WaitForChild("GlossyUI"))
 local ClubArt = require(script.Parent:WaitForChild("ClubArt"))
+local HudIcons = require(script.Parent:WaitForChild("HudIcons"))
 local Animators: { [number]: Types.SpriteAnimator } = {}
+local CharacterCreator = require(script.Parent:WaitForChild("CharacterCreator"))
+local Appearance = require(Shared:WaitForChild("Appearance"))
+local CharacterEditor: Types.CharacterEditor? = nil
 
 -- Viewport Zoom constants
 local MIN_ZOOM = 0.5
@@ -59,7 +63,7 @@ Screen.Parent = PlayerGui
 
 local Backdrop = Instance.new("Frame")
 Backdrop.Size = UDim2.fromScale(1, 1)
-Backdrop.BackgroundColor3 = Color3.fromRGB(14, 12, 26)
+Backdrop.BackgroundColor3 = Color3.fromRGB(27, 32, 40)
 Backdrop.BorderSizePixel = 0
 Backdrop.Parent = Screen
 
@@ -105,6 +109,7 @@ HoverTile.Visible = false
 HoverTile.ZIndex = 80000
 HoverTile.Parent = CursorLayer
 ClubArt.cursor(HoverTile)
+local HoverEdges = HoverTile:GetChildren()
 
 local HoverStroke = Instance.new("UIStroke")
 HoverStroke.Thickness = 0
@@ -187,6 +192,8 @@ local isPanning = false
 local panStart = Vector2.zero
 local canvasStart = WorldCanvas.Position
 local panMoved = false
+local panButton: Enum.UserInputType? = nil
+local panDirection = Vector2.zero
 
 -- Forward declaration of UI refresh functions
 local refreshHud: () -> ()
@@ -214,6 +221,10 @@ end
 
 -- Real-time hover cursor & ghost preview updater
 function updateHoverCursor()
+	if CurrentMode == "None" or (CharacterEditor and CharacterEditor.IsOpen()) then
+		HoverTile.Visible, GhostPreview.Visible, TooltipBadge.Visible = false,false,false
+		return
+	end
 	local gx, gy, inBounds = getMouseGrid()
 
 	if not inBounds then
@@ -363,6 +374,7 @@ end
 -- World Rebuild (Tiles & Placed Items)
 local PulsePads: { Frame } = {}
 local lastLayout = ""
+local lastRoomSize = ""
 function rebuildWorld()
 	local entries = { tostring(CurrentState.GridWidth), tostring(CurrentState.GridHeight), MovingItemUid or "" }
 	for uid, item in CurrentState.PlacedItems do table.insert(entries, uid .. item.ItemId .. ":" .. item.GX .. ":" .. item.GY) end
@@ -371,9 +383,13 @@ function rebuildWorld()
 	if signature == lastLayout then updateHoverCursor(); return end
 	lastLayout = signature
 	table.clear(PulsePads)
-	TileLayer:ClearAllChildren()
+	local roomSize = CurrentState.GridWidth .. ":" .. CurrentState.GridHeight
+	if roomSize ~= lastRoomSize then
+		lastRoomSize = roomSize
+		TileLayer:ClearAllChildren()
+		ClubArt.room(TileLayer, CurrentState.GridWidth, CurrentState.GridHeight)
+	end
 	ObjectLayer:ClearAllChildren()
-	ClubArt.room(TileLayer, CurrentState.GridWidth, CurrentState.GridHeight)
 
 	for _, placed in CurrentState.PlacedItems do
 		local def = GameConfig.ITEMS[placed.ItemId]
@@ -438,13 +454,8 @@ end
 
 -- Ground tile input & World Panning
 Backdrop.InputBegan:Connect(function(input: InputObject)
-	if input.UserInputType == Enum.UserInputType.MouseButton2 or input.UserInputType == Enum.UserInputType.MouseButton3 then
-		isPanning = true
-		panMoved = false
-		panStart = UserInputService:GetMouseLocation()
-		canvasStart = WorldCanvas.Position
-
-	elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
+	if CharacterEditor and CharacterEditor.IsOpen() then return end
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
 		local gx, gy, inBounds = getMouseGrid()
 		if not inBounds then
 			return
@@ -486,8 +497,10 @@ Backdrop.InputBegan:Connect(function(input: InputObject)
 end)
 
 UserInputService.InputEnded:Connect(function(input: InputObject)
-	if input.UserInputType == Enum.UserInputType.MouseButton2 or input.UserInputType == Enum.UserInputType.MouseButton3 then
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then panDirection = Vector2.zero end
+	if input.UserInputType == panButton then
 		isPanning = false
+		panButton = nil
 		-- If right-clicked without dragging, cancel active mode
 		if input.UserInputType == Enum.UserInputType.MouseButton2 and not panMoved then
 			if CurrentMode ~= "None" or MovingItemUid ~= nil then
@@ -498,12 +511,31 @@ UserInputService.InputEnded:Connect(function(input: InputObject)
 end)
 
 UserInputService.InputBegan:Connect(function(input: InputObject, gameProcessed: boolean)
+	local kind = input.UserInputType
+	local mouse = UserInputService:GetMouseLocation()
+	local overHud = false
+	for _, ui in PlayerGui:GetGuiObjectsAtPosition(mouse.X, mouse.Y) do
+		if ui:IsDescendantOf(Screen) and ui.ZIndex >= 90000 then overHud = true; break end
+	end
+	if not overHud and not UserInputService:GetFocusedTextBox() and
+		(kind == Enum.UserInputType.MouseButton2 or kind == Enum.UserInputType.MouseButton3
+		or (kind == Enum.UserInputType.MouseButton1 and CurrentMode == "None")) then
+		isPanning, panMoved, panButton = true, false, kind
+		panStart, canvasStart = mouse, WorldCanvas.Position
+	end
 	if not gameProcessed and input.KeyCode == Enum.KeyCode.Escape then
 		setMode("None")
 	end
 end)
 
+UserInputService.WindowFocusReleased:Connect(function()
+	isPanning = false
+	panButton = nil
+	panDirection = Vector2.zero
+end)
+
 UserInputService.InputChanged:Connect(function(input: InputObject)
+	if CharacterEditor and CharacterEditor.IsOpen() then return end
 	if input.UserInputType == Enum.UserInputType.MouseWheel then
 		-- Mouse-wheel zoom clamped between 0.5 and 1.8
 		local delta = input.Position.Z * 0.1
@@ -523,7 +555,7 @@ UserInputService.InputChanged:Connect(function(input: InputObject)
 			canvasStart.Y.Scale,
 			canvasStart.Y.Offset + delta.Y
 		)
-	elseif input.UserInputType == Enum.UserInputType.MouseMovement then
+	elseif CurrentMode ~= "None" and input.UserInputType == Enum.UserInputType.MouseMovement then
 		updateHoverCursor()
 	end
 end)
@@ -533,8 +565,8 @@ local TopHud = Instance.new("Frame")
 TopHud.Name = "TopHud"
 TopHud.AnchorPoint = Vector2.new(0.5, 0)
 TopHud.Position = UDim2.new(0.5, 0, 0, 12)
-TopHud.Size = UDim2.fromOffset(900, 58)
-TopHud.BackgroundColor3 = Color3.fromRGB(85, 135, 207)
+TopHud.Size = UDim2.fromOffset(800, 54)
+TopHud.BackgroundColor3 = Color3.fromRGB(26, 39, 55)
 TopHud.ZIndex = 90000
 TopHud.Parent = Backdrop
 GlossyUI.style(TopHud)
@@ -545,17 +577,30 @@ topCorner.Parent = TopHud
 
 local topStroke = Instance.new("UIStroke")
 topStroke.Thickness = 1.5
-topStroke.Color = Color3.fromRGB(79, 70, 229)
+topStroke.Color = Color3.fromRGB(98, 179, 214)
 topStroke.Parent = TopHud
+
+local ClubLogo = Instance.new("TextButton")
+ClubLogo.Size = UDim2.fromOffset(118, 50)
+ClubLogo.Position = UDim2.fromOffset(4, 2)
+ClubLogo.BackgroundTransparency = 1
+ClubLogo.Text = "MY LOOK\nCUSTOMIZE"
+ClubLogo.Font = Enum.Font.GothamBlack
+ClubLogo.TextSize = 15
+ClubLogo.TextColor3 = Color3.fromRGB(134, 243, 255)
+ClubLogo.TextStrokeColor3 = Color3.fromRGB(7, 20, 36)
+ClubLogo.TextStrokeTransparency = 0
+ClubLogo.ZIndex = 90001
+ClubLogo.Parent = TopHud
 
 -- Individually readable glossy stat capsules.
 local StatLabels: { TextLabel } = {}
 for i, title in { "CASH", "POPULARITY", "LUXURY", "MOCKTAILS", "DJ SET" } do
 	local badge = Instance.new("TextLabel")
 	badge.Name = title
-	badge.Position = UDim2.fromOffset(10 + (i - 1) * 178, 7)
-	badge.Size = UDim2.fromOffset(168, 44)
-	badge.BackgroundColor3 = if i == 1 then Color3.fromRGB(74, 155, 73) else Color3.fromRGB(43, 76, 132)
+	badge.Position = UDim2.fromOffset(128 + (i - 1) * 132, 6)
+	badge.Size = UDim2.fromOffset(124, 42)
+	badge.BackgroundColor3 = if i == 1 then Color3.fromRGB(47, 122, 78) else Color3.fromRGB(35, 119, 162)
 	badge.TextColor3 = Color3.new(1, 1, 1)
 	badge.Font = Enum.Font.GothamBold
 	badge.TextSize = 13
@@ -572,12 +617,12 @@ end
 -- Sub banner for active mode instructions
 local SubBanner = Instance.new("TextLabel")
 SubBanner.AnchorPoint = Vector2.new(0.5, 0)
-SubBanner.Position = UDim2.new(0.5, 0, 0, 76)
+SubBanner.Position = UDim2.new(0.5, 0, 1, -112)
 SubBanner.Size = UDim2.fromOffset(680, 26)
 SubBanner.BackgroundColor3 = Color3.fromRGB(20, 16, 36)
 SubBanner.TextColor3 = Color3.fromRGB(226, 232, 240)
 SubBanner.Font = Enum.Font.GothamMedium
-SubBanner.TextSize = 12
+SubBanner.TextSize = 11
 SubBanner.ZIndex = 90000
 SubBanner.Parent = Backdrop
 
@@ -595,8 +640,8 @@ local BottomDock = Instance.new("Frame")
 BottomDock.Name = "BottomDock"
 BottomDock.AnchorPoint = Vector2.new(0.5, 1)
 BottomDock.Position = UDim2.new(0.5, 0, 1, -12)
-BottomDock.Size = UDim2.fromOffset(980, 68)
-BottomDock.BackgroundColor3 = Color3.fromRGB(85, 135, 207)
+BottomDock.Size = UDim2.fromOffset(760, 88)
+BottomDock.BackgroundColor3 = Color3.fromRGB(26, 43, 62)
 BottomDock.ZIndex = 90000
 BottomDock.Parent = Backdrop
 GlossyUI.style(BottomDock)
@@ -607,7 +652,7 @@ dockCorner.Parent = BottomDock
 
 local dockStroke = Instance.new("UIStroke")
 dockStroke.Thickness = 1.5
-dockStroke.Color = Color3.fromRGB(67, 56, 202)
+dockStroke.Color = Color3.fromRGB(98, 179, 214)
 dockStroke.Parent = BottomDock
 
 local DockLayout = Instance.new("UIListLayout")
@@ -621,7 +666,7 @@ DockLayout.Parent = BottomDock
 local BuildShelf = Instance.new("Frame")
 BuildShelf.Name = "BuildShelf"
 BuildShelf.AnchorPoint = Vector2.new(0.5, 1)
-BuildShelf.Position = UDim2.new(0.5, 0, 1, -86)
+BuildShelf.Position = UDim2.new(0.5, 0, 1, -150)
 BuildShelf.Size = UDim2.fromOffset(920, 80)
 BuildShelf.BackgroundColor3 = Color3.fromRGB(18, 14, 34)
 BuildShelf.ZIndex = 90000
@@ -723,9 +768,9 @@ local DockButtons: { [string]: TextButton } = {}
 
 local function makeDockButton(id: string, label: string, color: Color3, width: number, onClick: () -> ()): TextButton
 	local btn = Instance.new("TextButton")
-	btn.Size = UDim2.fromOffset(width, 48)
+	btn.Size = UDim2.fromOffset(if width > 50 then 76 else 34, 68)
 	btn.BackgroundColor3 = color
-	btn.Text = label
+	btn.Text = if id == "ZoomIn" then "+" elseif id == "ZoomOut" then "-" else ""
 	btn.TextWrapped = true
 	btn.Font = Enum.Font.GothamBold
 	btn.TextSize = 11
@@ -733,6 +778,18 @@ local function makeDockButton(id: string, label: string, color: Color3, width: n
 	btn.ZIndex = 90001
 	btn.Parent = BottomDock
 	GlossyUI.style(btn)
+	HudIcons.draw(btn, id)
+	local names = {DJRefresh="DJ Set", DJBass="Bass Drop", DJShout="Shoutout", Restock="Mocktails", BuildShop="Build", MoveItem="Move", SellItem="Sell"}
+	if names[id] then
+		local caption = Instance.new("TextLabel")
+		caption.Size, caption.Position = UDim2.new(1,0,0,20), UDim2.fromOffset(0,45)
+		caption.BackgroundTransparency = 1
+		caption.Text, caption.Font, caption.TextSize = names[id], Enum.Font.GothamBold, 11
+		caption.TextColor3, caption.ZIndex = Color3.new(1,1,1), 90002
+		caption.Parent = btn
+	end
+	btn.MouseEnter:Connect(function() SubBanner.Text = label; SubBanner.Visible = true end)
+	btn.MouseLeave:Connect(function() refreshHud() end)
 
 	local btnCorner = Instance.new("UICorner")
 	btnCorner.CornerRadius = UDim.new(0, 8)
@@ -802,7 +859,7 @@ makeDockButton("ZoomOut", "🔍 -", Color3.fromRGB(39, 39, 58), 44, function()
 end)
 
 local ZoomLabel = Instance.new("TextLabel")
-ZoomLabel.Size = UDim2.fromOffset(50, 48)
+ZoomLabel.Size = UDim2.fromOffset(46, 68)
 ZoomLabel.BackgroundColor3 = Color3.fromRGB(30, 27, 46)
 ZoomLabel.TextColor3 = Color3.fromRGB(226, 232, 240)
 ZoomLabel.Font = Enum.Font.GothamBold
@@ -865,6 +922,7 @@ end
 
 -- Refresh HUD and Instruction Sub-Banner
 function refreshHud()
+	SubBanner.Visible = CurrentMode ~= "None"
 	local setRemaining = math.max(0, CurrentState.DJSetEndsAt - os.time())
 	ZoomLabel.Text = string.format("%d%%", math.round(currentZoom * 100))
 
@@ -893,7 +951,7 @@ function refreshHud()
 		SubBanner.TextColor3 = Color3.fromRGB(254, 202, 202)
 		subStroke.Color = Color3.fromRGB(225, 29, 72)
 	else
-		SubBanner.Text = "🎮 Scroll Wheel / +/- to Zoom  •  Right-Click Drag to Pan Club  •  Click Shop / Move / Sell to edit"
+		SubBanner.Text = "🎮 Drag to Pan | Arrows / FIT | Wheel to Zoom  •  Right-Click Drag to Pan Club  •  Click Shop / Move / Sell to edit"
 		SubBanner.TextColor3 = Color3.fromRGB(203, 213, 225)
 		subStroke.Color = Color3.fromRGB(99, 102, 241)
 	end
@@ -904,7 +962,7 @@ for i = 1, 36 do
 	local gx = math.random(2, CurrentState.GridWidth)
 	local gy = math.random(2, CurrentState.GridHeight)
 	local color = Color3.fromHSV((i * 0.13) % 1, 0.65, 0.95)
-	local animator = SpriteAnimator.new(GuestLayer, GameConfig.GUEST_SPRITE, color, i % 5 == 0)
+	local animator = SpriteAnimator.new(GuestLayer, GameConfig.GUEST_SPRITE, color, i % 5 == 0, if i == 1 then (CurrentState.Appearance or Appearance.default()) else nil)
 	Animators[i] = animator
 	local guestGui = animator.Root
 
@@ -927,6 +985,24 @@ local danceUntil: { [number]: number } = {}
 local hudElapsed = 0
 local lightElapsed = 0
 local renderConnection = RunService.RenderStepped:Connect(function(dt: number)
+	if panDirection.Magnitude > 0 then
+		local move = panDirection * (480 * math.min(dt,0.1))
+		local position = WorldCanvas.Position
+		WorldCanvas.Position = UDim2.new(position.X.Scale,position.X.Offset+move.X,position.Y.Scale,position.Y.Offset+move.Y)
+		updateHoverCursor()
+	end
+	lightElapsed += dt
+	if lightElapsed >= 0.1 then
+		lightElapsed = 0
+		local tint = Color3.fromRGB(32,123,234):Lerp(Color3.fromRGB(68,221,255),0.5+0.5*math.sin(os.clock()*2))
+		for _, band in PulsePads do band.BackgroundColor3 = tint end
+	end
+	for _, edge in HoverEdges do
+		if edge:IsA("Frame") then
+			edge.BackgroundColor3 = HoverTile.BackgroundColor3
+			edge.ZIndex = HoverTile.ZIndex
+		end
+	end
 	hudElapsed += dt
 	if hudElapsed >= 1 then
 		hudElapsed %= 1
@@ -948,7 +1024,7 @@ local renderConnection = RunService.RenderStepped:Connect(function(dt: number)
 			end
 		else
 			danceUntil[g.Id] = nil
-			local step = math.min(dist, g.Speed * dt)
+			local step = math.min(dist, g.Speed * math.min(dt,0.1))
 			g.GX += (dx / dist) * step
 			g.GY += (dy / dist) * step
 		end
@@ -959,7 +1035,9 @@ local renderConnection = RunService.RenderStepped:Connect(function(dt: number)
 			gui.Position = UDim2.fromOffset(screenPos.X, screenPos.Y)
 			local animator = Animators[g.Id]
 			animator.Play(if dist < 0.1 then "Dance" else "Walk")
-			animator.Update(dt, Iso.getZIndex(g.GX, g.GY, 5))
+			local screenDx = diffX - diffY
+			local guestFacing: "Left" | "Right" = if screenDx < -0.05 then "Left" elseif screenDx > 0.05 then "Right" else "Right"
+			animator.Update(dt, Iso.getZIndex(g.GX, g.GY, 5), guestFacing)
 		end
 	end
 
@@ -968,13 +1046,20 @@ local renderConnection = RunService.RenderStepped:Connect(function(dt: number)
 		GhostPreview.BackgroundTransparency = 0.35 + 0.15 * math.sin(t * 7)
 	end
 
-	-- Continuously sync hover cursor with mouse cursor every frame
-	if CurrentMode ~= "None" then
-		updateHoverCursor()
-	end
+	-- Hover updates on mouse motion, layout changes, zoom, and arrow panning.
 end)
 
 StateUpdatedEv.OnClientEvent:Connect(function(newState: Types.ClubState)
+	local oldLook = CurrentState.Appearance or Appearance.default()
+	local newLook = newState.Appearance or Appearance.default()
+	local changed = false
+	for name in Appearance.Limits do if (oldLook :: any)[name] ~= (newLook :: any)[name] then changed=true;break end end
+	if changed and Guests[1] then
+		local g = Guests[1]
+		Animators[1].Destroy()
+		Animators[1] = SpriteAnimator.new(GuestLayer,GameConfig.GUEST_SPRITE,g.SpriteColor,false,newLook)
+		g.GuiRoot = Animators[1].Root
+	end
 	local earned = newState.Cash - CurrentState.Cash
 	if earned > 0 then
 		-- State snapshots report net income, not a specific guest transaction.
@@ -989,13 +1074,14 @@ end)
 
 Screen.Destroying:Connect(function()
 	renderConnection:Disconnect()
+	if CharacterEditor then CharacterEditor.Destroy() end
 	for _, animator in Animators do animator.Destroy() end
 	table.clear(Animators)
 end)
 
 -- Fit the toolbars on narrow windows while leaving world zoom independent.
 local function fitHud()
-	local scale = math.min(1, math.max(0.1, (Backdrop.AbsoluteSize.X - 24) / 980))
+	local scale = math.min(1, math.max(0.1, (Backdrop.AbsoluteSize.X - 24) / 920))
 	for _, panel in { TopHud, SubBanner, BottomDock, BuildShelf } do
 		local uiScale = panel:FindFirstChildOfClass("UIScale")
 		if not uiScale then
@@ -1005,8 +1091,61 @@ local function fitHud()
 		uiScale.Scale = scale
 	end
 end
-Backdrop:GetPropertyChangedSignal("AbsoluteSize"):Connect(fitHud)
-fitHud()
+local function frameClub()
+	fitHud()
+	local size = Backdrop.AbsoluteSize
+	if size.X < 1 or size.Y < 1 then return end
+	local roomWidth = (CurrentState.GridWidth + CurrentState.GridHeight) * 64
+	local roomHeight = (CurrentState.GridWidth + CurrentState.GridHeight) * 32
+	currentZoom = math.clamp(math.min((size.X - 90) / (roomWidth + 128), (size.Y - 210) / (roomHeight + 140)), MIN_ZOOM, 1)
+	WorldScale.Scale = currentZoom
+	WorldCanvas.Position = UDim2.new(0.5, 0, 0, 76 + math.max(0, (size.Y - 210 - roomHeight * currentZoom) / 2))
+	refreshHud()
+end
+Backdrop:GetPropertyChangedSignal("AbsoluteSize"):Connect(frameClub)
+frameClub()
+
+-- Visible mouse navigation; hold an arrow to move the view in that direction.
+local NavigationPad = Instance.new("Frame")
+NavigationPad.Name = "CameraNavigation"
+NavigationPad.Size = UDim2.fromOffset(110,110)
+NavigationPad.AnchorPoint = Vector2.new(1,1)
+NavigationPad.Position = UDim2.new(1,-14,1,-112)
+NavigationPad.BackgroundTransparency = 1
+NavigationPad.ZIndex = 90010
+NavigationPad.Parent = Backdrop
+for _, entry in {
+	{Text="^", X=38, Y=0, Direction=Vector2.new(0,1)},
+	{Text="v", X=38, Y=76, Direction=Vector2.new(0,-1)},
+	{Text="<", X=0, Y=38, Direction=Vector2.new(1,0)},
+	{Text=">", X=76, Y=38, Direction=Vector2.new(-1,0)},
+} do
+	local arrow = Instance.new("TextButton")
+	arrow.Size, arrow.Position = UDim2.fromOffset(34,34), UDim2.fromOffset(entry.X,entry.Y)
+	arrow.BackgroundColor3 = Color3.fromRGB(36,88,112)
+	arrow.TextColor3 = Color3.fromRGB(206,251,255)
+	arrow.Text, arrow.TextSize, arrow.Font = entry.Text, 24, Enum.Font.GothamBold
+	arrow.ZIndex = 90011
+	local corner = Instance.new("UICorner"); corner.CornerRadius=UDim.new(0,8); corner.Parent=arrow
+	arrow.Parent = NavigationPad
+	arrow.MouseButton1Down:Connect(function() panDirection = entry.Direction end)
+end
+local center = Instance.new("TextButton")
+center.Size, center.Position = UDim2.fromOffset(34,34), UDim2.fromOffset(38,38)
+center.Text, center.TextSize, center.Font = "FIT", 10, Enum.Font.GothamBold
+center.BackgroundColor3, center.TextColor3 = Color3.fromRGB(21,40,56), Color3.new(1,1,1)
+center.ZIndex = 90011
+center.Parent = NavigationPad
+center.Activated:Connect(frameClub)
+
+CharacterEditor = CharacterCreator.new(Backdrop,CurrentState.Appearance,function(selection: Types.Appearance): (boolean,string)
+	return ActionFn:InvokeServer("SetAppearance",{Appearance=selection})
+end)
+ClubLogo.Activated:Connect(function()
+	isPanning,panButton,panDirection = false,nil,Vector2.zero
+	setMode("None")
+	if CharacterEditor then CharacterEditor.Open(CurrentState.Appearance) end
+end)
 
 -- Initial build
 rebuildWorld()

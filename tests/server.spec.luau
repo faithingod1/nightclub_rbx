@@ -2,6 +2,13 @@
 local Rules, DataManager, Config = modules.ClubRules, modules.DataManager, modules.GameConfig
 local state = Rules.new()
 assert(Rules.decode(state), "starter roundtrip failed")
+local legacy = copy(state)
+legacy.Appearance = nil
+local migrated = assert(Rules.decode(legacy))
+assert(migrated.Appearance.Hair == modules.Appearance.default().Hair and migrated.Cash == legacy.Cash, "legacy appearance migration changed save")
+local starterCount = 0
+for _ in migrated.PlacedItems do starterCount += 1 end
+assert(starterCount == 25, "starter lounge incomplete")
 state.Cash = 1e6
 for _, size in {12, 14, 16, 18, 20} do
 	local prior, cost = state.Cash, Config.EXPANSIONS[state.GridWidth].Cost
@@ -18,6 +25,9 @@ assert(Rules.decode(malformed) == nil, "fractional placement accepted")
 print("PASS expansion tiers, affordability, bounds, and data validation")
 
 state = Rules.new()
+for uid, item in state.PlacedItems do
+	if item.ItemId == "VelvetVIPBooth" then state.PlacedItems[uid] = nil end
+end
 Rules.tickCelebrity(state, mockTime + 31, 3)
 local visit = assert(state.Celebrity)
 local balance = state.Cash
@@ -41,11 +51,14 @@ local first = DataManager.new(db, false)
 local second = DataManager.new(db, false)
 local home = assert(first.Load(1))
 home.Cash = 7777
+home.Appearance.Hair = 6
+home.Appearance.Skin = 4
 assert(first.Save(1))
 assert(second.Load(1) == nil, "simultaneous session acquired lock")
 first.Close(1)
 local reopened = assert(second.Load(1))
 assert(reopened.Cash == 7777, "saved cash not restored")
+assert(reopened.Appearance.Hair == 6 and reopened.Appearance.Skin == 4, "appearance not restored")
 assert(second.Save(1))
 -- New session can recover expired lease, old server cannot overwrite it.
 mockTime += Config.PERSISTENCE.LeaseSeconds + 1

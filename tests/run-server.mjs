@@ -7,7 +7,7 @@ const all = fs.readdirSync('src', { recursive: true }).filter(f => f.endsWith('.
 for (const file of all) runtime.loadstring(fs.readFileSync(path.join('src', file), 'utf8'), file, true);
 console.log(`Compiled ${all.length} production Luau files`);
 let bundle = fs.readFileSync('tests/crowd-mocks.luau', 'utf8') + '\n' + fs.readFileSync('tests/server-mocks.luau', 'utf8');
-for (const file of ['src/shared/Types.luau', 'src/shared/GameConfig.luau', 'src/server/ClubRules.luau', 'src/server/DataManager.luau']) {
+for (const file of ['src/shared/Types.luau', 'src/shared/GameConfig.luau', 'src/shared/Appearance.luau', 'src/server/ClubRules.luau', 'src/server/DataManager.luau']) {
   bundle += `\nmodules["${path.basename(file, '.luau')}"] = (function()\n${fs.readFileSync(file, 'utf8')}\nend)()\n`;
 }
 bundle += fs.readFileSync('tests/server.spec.luau', 'utf8');

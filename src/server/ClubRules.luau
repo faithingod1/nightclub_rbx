@@ -4,6 +4,7 @@ local HttpService = game:GetService("HttpService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Types = require(Shared:WaitForChild("Types"))
 local Config = require(Shared:WaitForChild("GameConfig"))
+local Appearance = require(Shared:WaitForChild("Appearance"))
 local Rules = {}
 
 function Rules.integer(value: any, minimum: number, maximum: number): boolean
@@ -27,18 +28,27 @@ end
 function Rules.new(): Types.ClubState
 	local state: Types.ClubState = {
 		GridWidth = 10, GridHeight = 10, Cash = Config.STARTING_CASH,
+		Appearance = Appearance.default(),
 		MocktailStock = 150, MaxMocktailStock = 300, Popularity = 0, Luxury = 0,
 		ActiveGenre = "Electro", DJSetEndsAt = os.time() + 180,
 		SkillCooldowns = { RefreshSet = 0, DropTheBass = 0, MicShoutout = 0 },
 		PlacedItems = {}, NextCelebrityAt = os.time() + 30,
 	}
 	for _, item in {
-		{ "StarterDJBooth", 2, 1 }, { "FizzMocktailBar", 1, 3 },
-		{ "NeonDancePad", 4, 4 }, { "NeonDancePad", 5, 4 },
-		{ "NeonDancePad", 4, 5 }, { "NeonDancePad", 5, 5 },
+		{ "StarterDJBooth", 2, 4 },
+		{ "BassTower", 2, 3 }, { "BassTower", 2, 5 },
+		{ "FizzMocktailBar", 4, 1 }, { "FizzMocktailBar", 5, 1 }, { "FizzMocktailBar", 6, 1 },
+		{ "VelvetVIPBooth", 8, 3 }, { "VelvetVIPBooth", 8, 5 }, { "VelvetVIPBooth", 8, 8 },
 	} do
 		local uid = HttpService:GenerateGUID(false)
 		state.PlacedItems[uid] = { Uid = uid, ItemId = item[1] :: string, GX = item[2] :: number, GY = item[3] :: number }
+	end
+	-- A complete starter dance zone; saved layouts are never replaced on load.
+	for gx = 3, 6 do
+		for gy = 3, 6 do
+			local uid = HttpService:GenerateGUID(false)
+			state.PlacedItems[uid] = { Uid = uid, ItemId = "NeonDancePad", GX = gx, GY = gy }
+		end
 	end
 	Rules.recalculate(state)
 	return state
@@ -52,6 +62,7 @@ function Rules.decode(raw: any): Types.ClubState?
 		or not Rules.integer(raw.MocktailStock, 0, 1e9) then return nil end
 	local state: Types.ClubState = {
 		GridWidth = raw.GridWidth, GridHeight = raw.GridHeight, Cash = raw.Cash,
+		Appearance = Appearance.validate(raw.Appearance) or Appearance.default(),
 		MocktailStock = raw.MocktailStock, MaxMocktailStock = 50, Popularity = 20, Luxury = 10,
 		ActiveGenre = if Config.MUSIC_GENRES[raw.ActiveGenre] then raw.ActiveGenre else "Electro",
 		DJSetEndsAt = if Rules.integer(raw.DJSetEndsAt, 0, 1e12) then raw.DJSetEndsAt else 0,

@@ -20,6 +20,7 @@ ok, result = call(social, a, "Visit", 200)
 assert(ok and result.Cash == 0, "visit failed or exposed private cash")
 local balance = get(a).Cash
 assert(not call(action, a, "ExpandClub", {}), "visitor expanded club")
+assert(not call(action, a, "SetAppearance", {Appearance = modules.Appearance.default()}), "visitor changed appearance")
 assert(not call(action, a, "PlaceItem", {ItemId = "BassTower", GX = 8, GY = 8}), "visitor changed furniture")
 assert(not call(social, a, "Visit", 999), "nonfriend visit accepted")
 assert(call(social, a, "Tip", 200))
@@ -32,9 +33,18 @@ assert(get(a).ActiveGenre == "SynthPop")
 assert(not call(action, a, "PlaceItem", {ItemId = "BassTower", GX = 0/0, GY = 3}))
 assert(not call(action, a, "PlaceItem", {ItemId = "BassTower", GX = 7.5, GY = 3}))
 assert(not call(action, a, "TriggerDJSkill", {Skill = {}}))
+local look = modules.Appearance.default()
+look.Hair, look.Skin = 6, 4
+local cashBeforeLook = get(a).Cash
+assert(call(action, a, "SetAppearance", {Appearance = look, Cash = 999999}))
+assert(get(a).Appearance.Hair == 6 and get(a).Cash == cashBeforeLook, "appearance action changed economics")
+look.Hair = 0/0
+assert(not call(action, a, "SetAppearance", {Appearance = look}), "malformed appearance accepted")
+assert(get(a).Appearance.Hair == 6, "invalid look overwrote valid look")
 players.PlayerRemoving:Fire(a); players.PlayerRemoving:Fire(b)
 assert(not serverDb.Records.Player_100.Lock and not serverDb.Records.Player_200.Lock, "leave did not release locks")
 assert(serverDb.Records.Player_100.State.ActiveGenre == "SynthPop", "genre not persisted on leave")
+assert(serverDb.Records.Player_100.State.Appearance.Hair == 6, "appearance not persisted on leave")
 assert(serverDb.Records.Player_200.State.Cash == balance + Config.TIP_AMOUNT, "recipient credit not saved on leave")
 print("PASS real remote handlers: friends, read-only visits, tips, genres, invalid requests, and leave-save")
 --!strict

@@ -45,3 +45,6 @@ function Instance.new(class)
 	table.insert(instances, object)
 	return object
 end
+
+local NumberSequence = {new = function(keys) return keys end}
+local NumberSequenceKeypoint = {new = function(t,v) return {Time=t,Value=v} end}

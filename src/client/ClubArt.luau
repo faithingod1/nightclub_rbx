@@ -24,26 +24,43 @@ local function line(parent: Instance, a: Vector2, b: Vector2, color: Color3, z: 
 	f.AnchorPoint = Vector2.new(0.5, 0.5)
 	f.Rotation = math.deg(math.atan2(d.Y, d.X))
 end
--- Convex UI polygons use horizontal bands; no uploaded image is required.
-local function polygon(parent: Instance, points: { Vector2 }, color: Color3, z: number)
-	local bands: { Frame } = {}
-	local low, high = math.huge, -math.huge
-	for _, p in points do low = math.min(low, p.Y); high = math.max(high, p.Y) end
-	for y = low, high - 0.01, 2 do
-		local height = math.min(2, high-y)
-		local middle = y + height / 2
-		local left, right = math.huge, -math.huge
-		for i, a in points do
-			local b = points[i % #points + 1]
-			if (a.Y <= middle and b.Y > middle) or (b.Y <= middle and a.Y > middle) then
-				local x = a.X + (middle-a.Y)/(b.Y-a.Y)*(b.X-a.X)
-				left, right = math.min(left,x), math.max(right,x)
-			end
+-- Split convex polygons into right triangles: constant instance count per face.
+local MASK = NumberSequence.new({
+	NumberSequenceKeypoint.new(0,0), NumberSequenceKeypoint.new(0.4999,0),
+	NumberSequenceKeypoint.new(0.5001,1), NumberSequenceKeypoint.new(1,1),
+})
+local function polygon(parent: Instance, points: { Vector2 }, color: Color3, z: number): { Frame }
+	local faces: { Frame } = {}
+	local function triangle(a: Vector2,b: Vector2,c: Vector2)
+		-- Splitting on the longest edge keeps the altitude inside the triangle.
+		if (c-a).Magnitude > (b-a).Magnitude then b,c=c,b end
+		if (c-b).Magnitude > (b-a).Magnitude then a,c=c,a end
+		local edge = b-a
+		if edge.Magnitude < 0.001 then return end
+		local unit = edge.Unit
+		local ac = c-a
+		local foot = a+unit*(ac.X*unit.X+ac.Y*unit.Y)
+		local up = c-foot
+		if up.Magnitude < 0.001 then return end
+		for _, endpoint in {a,b} do
+			local base = endpoint-foot
+			if base.Magnitude < 0.001 then continue end
+			local center = foot+(base+up)*0.5
+			local face = rect(parent,center.X,center.Y,base.Magnitude,up.Magnitude,color,z)
+			face.AnchorPoint = Vector2.new(0.5,0.5)
+			face.Rotation = math.deg(math.atan2(base.Y,base.X))
+			local mask = Instance.new("UIGradient")
+			local sign = if base.X*up.Y-base.Y*up.X > 0 then 1 else -1
+			mask.Rotation = sign*math.deg(math.atan2(base.Magnitude,up.Magnitude))
+			mask.Transparency = MASK
+			mask.Parent = face
+			table.insert(faces,face)
 		end
-		if right > left then table.insert(bands, rect(parent,left,y,right-left,height,color,z)) end
 	end
-	return bands
+	for i=2,#points-1 do triangle(points[1],points[i],points[i+1]) end
+	return faces
 end
+
 local function text(parent: Instance, value: string, x: number, y: number, w: number, h: number, z: number, color: Color3?)
 	local t = Instance.new("TextLabel")
 	t.BackgroundTransparency = 1
@@ -61,9 +78,9 @@ function Art.room(parent: Instance, width: number, height: number)
 	-- Streets and pavements share the camera and zoom of the club.
 	polygon(parent,{p(-2,-2),p(width+3,-2),p(width+3,height+3),p(-2,height+3)},rgb(30,34,43),1)
 	polygon(parent,{p(-0.7,-0.7),p(width+1.4,-0.7),p(width+1.4,height+1.4),p(-0.7,height+1.4)},rgb(98,108,118),1)
-	polygon(parent,{p(0.5,0.5),p(width+0.5,0.5),p(width+0.5,height+0.5),p(0.5,height+0.5)},rgb(74,86,99),2)
-	for x = 0.5, width+0.5 do line(parent,p(x,0.5),p(x,height+0.5),rgb(112,125,137),3,1) end
-	for y = 0.5, height+0.5 do line(parent,p(0.5,y),p(width+0.5,y),rgb(42,51,63),3,1) end
+	polygon(parent,{p(0.5,0.5),p(width+0.5,0.5),p(width+0.5,height+0.5),p(0.5,height+0.5)},rgb(113,85,53),2)
+	for x = 0.5, width+0.5 do line(parent,p(x,0.5),p(x,height+0.5),rgb(159,123,73),3,1) end
+	for y = 0.5, height+0.5 do line(parent,p(0.5,y),p(width+0.5,y),rgb(75,56,38),3,1) end
 	for i = 1, math.max(width,height), 2 do
 		local a = p(i,-1.5)
 		line(parent,a,a+Vector2.new(48,24),rgb(168,170,157),1,4)
@@ -88,14 +105,44 @@ function Art.room(parent: Instance, width: number, height: number)
 			local b = if side then p(i+0.5,0.5) else p(0.5,i+0.5)
 			local lift = Vector2.new(0,110)
 			polygon(parent,{a,b,b-lift,a-lift},if side then rgb(29,40,54) else rgb(39,49,65),4)
+			-- Geometric neon strips on dark panels, as in the reference lounge.
+			local middle = (a+b)*0.5
+			line(parent,a-Vector2.new(0,54),middle-Vector2.new(0,94),rgb(184,83,219),4,2)
+			line(parent,middle-Vector2.new(0,94),b-Vector2.new(0,51),rgb(77,207,238),4,2)
+			line(parent,a-Vector2.new(0,8),b-Vector2.new(0,8),rgb(111,81,57),4,5)
+
 			line(parent,a-lift,b-lift,rgb(106,192,209),4,5)
-			for row=1,4 do line(parent,a-Vector2.new(0,row*22),b-Vector2.new(0,row*22),rgb(58,72,86),4,1) end
+			if i%3 == 0 then
+				local lamp=(a+b)*0.5-Vector2.new(0,77)
+				rect(parent,lamp.X-7,lamp.Y-8,14,23,rgb(16,24,37),4,4)
+				rect(parent,lamp.X-3,lamp.Y-4,6,15,rgb(255,218,149),4,3)
+			end
 			line(parent,a,b,rgb(17,23,34),4,8)
 		end
 	end
+	-- Entrance at tile (1,1), with a recessed opening and open glass leaf.
+	local da, db = p(0.5,0.5), p(1.5,0.5)
+	local lift = Vector2.new(0,116)
+	polygon(parent,{da,db,db-lift,da-lift},rgb(9,15,25),4)
+	line(parent,da,da-lift,rgb(181,139,74),4,7)
+	line(parent,db,db-lift,rgb(181,139,74),4,7)
+	line(parent,da-lift,db-lift,rgb(235,196,111),4,8)
+	local leaf = db+Vector2.new(23,-15)
+	polygon(parent,{db,leaf,leaf-Vector2.new(0,104),db-Vector2.new(0,104)},rgb(49,108,130),4)
+	line(parent,leaf,leaf-Vector2.new(0,104),rgb(156,220,227),4,3)
+	line(parent,db-Vector2.new(0,50),leaf-Vector2.new(0,50),rgb(231,197,116),4,4)
+	polygon(parent,{da,db,db+Vector2.new(-18,9),da+Vector2.new(-18,9)},rgb(160,62,92),4)
+	local entrance = (da+db)*0.5-lift
+	text(parent,"OPEN",entrance.X-23,entrance.Y-27,46,22,4,rgb(255,221,137))
 	local sign = p(3,0.5)
 	rect(parent,sign.X-66,sign.Y-102,132,34,rgb(12,20,34),4,8)
 	text(parent,"NEON SOCIAL",sign.X-65,sign.Y-101,130,32,4,rgb(110,240,244))
+	-- Raised front edges give the room a cutaway-platform silhouette.
+	local front = p(width+0.5,height+0.5)
+	for _, edge in {p(width+0.5,0.5),p(0.5,height+0.5)} do
+		polygon(parent,{edge,front,front+Vector2.new(0,18),edge+Vector2.new(0,18)},rgb(29,32,41),4)
+		line(parent,edge,front,rgb(118,134,146),4,3)
+	end
 	for _, point in {p(width+1.1,1),p(1,height+1.1)} do
 		rect(parent,point.X-3,point.Y-94,6,94,rgb(32,38,49),4)
 		rect(parent,point.X-13,point.Y-100,26,18,rgb(255,220,135),4,7)
@@ -104,7 +151,7 @@ end
 
 function Art.furniture(parent: GuiObject, def: Types.ItemDef): { Frame }
 	local z = parent.ZIndex
-	local c = def.FallbackColor
+	local c = if def.Category == "DancePad" then rgb(39,161,246) else def.FallbackColor
 	local category = def.Category
 	if category == "DancePad" then
 		diamond(parent,64,32,126,62,rgb(16,23,37),z)
@@ -143,11 +190,11 @@ function Art.furniture(parent: GuiObject, def: Types.ItemDef): { Frame }
 		end
 		text(parent,"NEON FIZZ",3,77,74,20,z)
 	elseif category == "VIPBooth" then
-		box(2,18,73,58,rgb(70,45,91))
-		rect(parent,7,23,62,28,c,z,9)
-		rect(parent,9,55,60,19,rgb(166,88,135),z,7)
-		rect(parent,2,45,12,34,rgb(101,58,112),z,5)
-		rect(parent,67,45,12,34,rgb(101,58,112),z,5)
+		box(2,18,73,58,rgb(15,23,32))
+		rect(parent,7,23,62,28,rgb(51,69,82),z,9)
+		rect(parent,9,55,60,19,rgb(39,56,70),z,7)
+		rect(parent,2,45,12,34,rgb(24,36,48),z,5)
+		rect(parent,67,45,12,34,rgb(24,36,48),z,5)
 		box(19,84,40,10,rgb(111,80,62))
 		rect(parent,35,70,8,15,rgb(255,224,134),z,4)
 	else

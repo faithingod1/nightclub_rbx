@@ -30,11 +30,11 @@ local function statusLabel(root: Frame): TextLabel
 	return label
 end
 
-local function render(animator: Types.SpriteAnimator, label: TextLabel, x: number, y: number, clip: string, dt: number)
+local function render(animator: Types.SpriteAnimator, label: TextLabel, x: number, y: number, clip: string, dt: number, facing: ("Left" | "Right")?)
 	local point = Iso.gridToScreen(x, y)
 	animator.Root.Position = UDim2.fromOffset(point.X, point.Y)
 	animator.Play(clip)
-	animator.Update(dt, Iso.getZIndex(x, y, 5))
+	animator.Update(dt, Iso.getZIndex(x, y, 5), facing)
 	label.ZIndex = Iso.getZIndex(x, y, 9)
 end
 
@@ -335,7 +335,13 @@ function GuestController.new(parent: Instance, initialState: Types.ClubState): T
 				guard.GX, guard.GY, guard.PathIndex = advance(guard.GX, guard.GY, guard.Path, guard.PathIndex, C.GuardSpeed, dt)
 			end
 			guard.Status.Text = if g then "ESCORTING" else "SECURITY"
-			render(guard.Animator, guard.Status, guard.GX, guard.GY, if g or guard.PathIndex <= #guard.Path then "Walk" else "Idle", dt)
+			local guardFacing: "Left" | "Right" = "Right"
+			if guard.PathIndex <= #guard.Path then
+				local wp = guard.Path[guard.PathIndex]
+				local sDx = (wp.X - guard.GX) - (wp.Y - guard.GY)
+				if sDx < -0.05 then guardFacing = "Left" elseif sDx > 0.05 then guardFacing = "Right" end
+			end
+			render(guard.Animator, guard.Status, guard.GX, guard.GY, if g or guard.PathIndex <= #guard.Path then "Walk" else "Idle", dt, guardFacing)
 		end
 		for i = #guests, 1, -1 do
 			local g = guests[i]
@@ -384,7 +390,13 @@ function GuestController.new(parent: Instance, initialState: Types.ClubState): T
 			g.Status.Visible = g.IsVIP or g.IsRowdy or g.Happiness < 60 or g.Mode == "Queueing"
 			g.Status.TextColor3 = if g.IsRowdy or g.Happiness < 40 then Color3.fromRGB(255, 120, 125)
 				elseif g.IsVIP then Color3.fromRGB(255, 219, 80) else Color3.fromRGB(180, 255, 206)
-			render(g.Animator, g.Status, g.GX, g.GY, if moving then "Walk" elseif g.Mode == "Dancing" or g.Mode == "RowdyCrasher" then "Dance" else "Idle", dt)
+			local guestFacing: "Left" | "Right" = "Right"
+			if moving then
+				local nextTarget = if g.Path and g.Path[g.PathIndex] then g.Path[g.PathIndex] else Vector2.new(g.TargetGX, g.TargetGY)
+				local sDx = (nextTarget.X - g.GX) - (nextTarget.Y - g.GY)
+				if sDx < -0.05 then guestFacing = "Left" elseif sDx > 0.05 then guestFacing = "Right" end
+			end
+			render(g.Animator, g.Status, g.GX, g.GY, if moving then "Walk" elseif g.Mode == "Dancing" or g.Mode == "RowdyCrasher" then "Dance" else "Idle", dt, guestFacing)
 		end
 	end
 

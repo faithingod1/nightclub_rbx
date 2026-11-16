@@ -201,12 +201,75 @@ The entire game remains ScreenGui-based with CharacterAutoLoads disabled.
 ClubArt.luau draws a 2:1 floor, streets, walls, city facades, detailed furniture,
 and shop illustrations from UI shapes. Empty assets have procedural fallbacks;
 configured furniture images remain supported. Dance lighting updates at 10 Hz.
-Guests have larger heads, varied skin tones, four hair/headphone styles, and
+Guests have larger heads, varied skin tones, six hair/headphone/cap styles, and
 animated limbs. Ordinary labels appear only when happiness needs attention.
-Room geometry is cached across economic updates; layout edits still rebuild it.
+Room geometry is cached across economic updates and furniture edits.
 The hover cursor matches the 128x64 tile diamond.
 
 This is an original procedural interpretation of the references. Painted sprite
-art remains a future art pass. Studio's UI connection was unavailable: room
-framing, depth ordering, small-screen controls, and maximum-club performance need
-Studio review. Band-based polygons trade extra UI instances for asset-free art.
+art remains a future art pass. Room framing, gradient-mask rendering, depth
+ordering, small-screen controls and maximum-club FPS need Studio review.
+Polygons use gradient-masked right triangles with constant instance counts.
+
+
+### Compact UI refresh
+
+The header now uses a compact club wordmark and cyan stat capsules. The bottom
+dock has seven procedural illustrations, short captions, and full action labels
+on hover. Edit instructions appear while editing. Room framing adapts to the
+viewport while respecting the existing zoom limits; resizing recenters the club.
+The cutaway room now has raised front edges. Existing saves are unaffected.
+
+Preview the refreshed build by opening `%TEMP%\nightclub-ui-refresh.rbxlx` in
+Studio and pressing Play. Renderer/icon tests and Rojo packaging pass; the native
+Studio preview was unavailable while its window was minimized. Detailed painted
+character/furniture sprites are still needed to reach the reference art quality.
+
+
+### Mouse movement and entrance update
+
+Drag with the left mouse button in normal mode, or right/middle button over the
+club in any mode. HUD controls are excluded. Hold the four arrow buttons for
+continuous movement; FIT recenters the room. Releasing the button or losing
+window focus stops movement. Left clicks in build mode still place furniture.
+
+Walls now have projected masonry, wood panels, brass trim and sconces. The
+entrance at (1,1) has a dark recess, brass frame, open glass leaf and threshold.
+Preview: `%TEMP%\nightclub-controls-entrance.rbxlx`.
+
+The generated character art is in `assets/characters/guest-teal-atlas.png`.
+It is not connected in-game: see the adjacent README for the required 1024x1024
+export and Roblox image upload. Procedural characters remain until an image ID
+is configured. No artwork has been published. Native visual/FPS testing remains
+pending. That earlier wall pass increased instance count; the optimization below replaces it.
+
+Run `node tests/run-pan.mjs <luau-web/src/index.js>` to check the production mouse
+handlers; the existing art tests check wall/furniture construction and depth.
+
+### Latest: character creator, neon lounge and performance
+
+Open `nightclub_roblox.rbxlx` from the project folder in Studio, then press Play.
+Choose **MY LOOK / CUSTOMIZE** in the top left. Cycle skin, face shape, hairstyle,
+hair color, eyes, outfit, pants and shoes; **SAVE CHARACTER** updates your club
+character. Cancel discards the draft. Appearance is validated on the server and
+included in the existing save/load flow. Studio preview is session-only by
+configuration; live servers persist through autosave and leave-save.
+
+Dark neon walls, a framed glass entrance, cyan dance lighting and charcoal lounge
+seating follow the reference's palette. New clubs receive a furnished 25-item
+layout with a 4x4 dancefloor, two speakers, three mocktail counter sections and
+three lounges. Existing saved layouts are preserved.
+
+The old wall renderer used thousands of horizontal strips. The new renderer uses
+447 room descendants at 10x10 and 818 at 20x20, down from 5,880 and 11,771 before
+this optimization. These counts exclude guests, furniture and HUD. Furniture
+edits retain the room background; idle mouse movement skips preview work; limb
+poses update at animation frame rate while guest translation remains per-frame.
+This is approximately a 93% room-instance reduction, **not a measured FPS gain**.
+
+Run `node tests/run-character.mjs <luau-web/src/index.js>` for creator draft/cancel,
+save failure, option validation, previews, hairstyles and outfits. Run the existing
+server, art, crowd and pan suites for persistence and regressions. All 17 source
+files compile in the Luau VM. Rojo packaging passes. Studio opened the isolated
+build, but input protection blocked Play; the user is handling the playtest.
+The characters remain procedural 2D artwork, not the painted reference sprites.

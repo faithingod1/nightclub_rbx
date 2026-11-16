@@ -9,6 +9,54 @@ GameConfig.STARTING_GRID_W = 10
 GameConfig.STARTING_GRID_H = 10
 GameConfig.STARTING_CASH = 2500
 
+GameConfig.CHARACTER = {
+	Skin = {
+		Color3.fromRGB(255, 230, 210),
+		Color3.fromRGB(248, 206, 172),
+		Color3.fromRGB(230, 180, 140),
+		Color3.fromRGB(198, 142, 102),
+		Color3.fromRGB(148, 98, 68),
+		Color3.fromRGB(85, 54, 42),
+	},
+	HairColor = {
+		Color3.fromRGB(40, 30, 25),
+		Color3.fromRGB(92, 56, 34),
+		Color3.fromRGB(168, 115, 62),
+		Color3.fromRGB(182, 55, 45),
+		Color3.fromRGB(135, 78, 48),
+		Color3.fromRGB(55, 48, 75),
+	},
+	Eyes = {
+		Color3.fromRGB(75, 48, 28),
+		Color3.fromRGB(38, 130, 95),
+		Color3.fromRGB(45, 120, 205),
+		Color3.fromRGB(175, 115, 40),
+		Color3.fromRGB(120, 65, 160),
+		Color3.fromRGB(85, 95, 110),
+	},
+	Top = {
+		Color3.fromRGB(28, 30, 36),
+		Color3.fromRGB(142, 68, 173),
+		Color3.fromRGB(240, 240, 245),
+		Color3.fromRGB(70, 140, 215),
+		Color3.fromRGB(48, 52, 62),
+		Color3.fromRGB(140, 85, 55),
+	},
+	Bottom = {
+		Color3.fromRGB(175, 150, 115),
+		Color3.fromRGB(80, 135, 195),
+		Color3.fromRGB(38, 55, 88),
+		Color3.fromRGB(42, 125, 90),
+		Color3.fromRGB(45, 48, 55),
+	},
+	Shoes = {
+		Color3.fromRGB(235, 238, 242),
+		Color3.fromRGB(220, 215, 200),
+		Color3.fromRGB(25, 25, 30),
+		Color3.fromRGB(115, 70, 45),
+	},
+}
+
 GameConfig.CROWD = {
 	MaxGuests = 36,
 	MaxQueue = 6,

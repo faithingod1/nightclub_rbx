@@ -32,7 +32,13 @@ export type CelebrityVisit = {
 	Progress: number, Goal: number, Reward: number, Rewarded: boolean,
 }
 
+export type Appearance = {
+	Skin: number, Face: number, Hair: number, HairColor: number,
+	Eyes: number, Top: number, Bottom: number, Shoes: number,
+}
+
 export type ClubState = {
+	Appearance: Appearance?,
 	Celebrity: CelebrityVisit?,
 	NextCelebrityAt: number,
 	GridWidth: number,
@@ -81,7 +87,8 @@ export type SpriteSheet = {
 export type SpriteAnimator = {
 	Root: Frame,
 	Play: (name: string) -> (),
-	Update: (dt: number, zIndex: number) -> (),
+	Update: (dt: number, zIndex: number, facing: ("Left" | "Right")?) -> (),
+	SetFacing: ((facing: "Left" | "Right") -> ())?,
 	Destroy: () -> (),
 }
 
@@ -135,5 +142,9 @@ export type DataSession = {
 export type FriendCard = { UserId: number, Name: string, Online: boolean }
 export type MusicController = { Update: (state: ClubState) -> (), Destroy: () -> () }
 export type SocialPanel = { Update: (state: ClubState) -> (), Destroy: () -> () }
+
+export type CharacterEditor = {
+	Open: (Appearance?) -> (), IsOpen: () -> boolean, Destroy: () -> (),
+}
 
 return {}

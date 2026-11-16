@@ -9,16 +9,16 @@ local Navigation = require(script.Parent:WaitForChild("GuestNavigation"))
 local GuestController = {}
 local C = Config.CROWD
 local function getQueueSlotCoords(slotIndex: number): (number, number, "Left" | "Right")
-	local qx = 0.18
-	local qy = 1.35 + (slotIndex - 1) * 0.78
+	local qx = 0.15
+	local qy = 1.85 + (slotIndex - 1) * 0.85
 	return qx, qy, "Right"
 end
 
 local ENTRANCE = Vector2.new(1, 1)
-local ENTRY_DOOR_OUTSIDE = Vector2.new(0.45, 1.20)
-local ENTRY_DOOR_INSIDE  = Vector2.new(1.35, 1.20)
-local EXIT_DOOR_INSIDE   = Vector2.new(1.35, 1.85)
-local EXIT_DOOR_OUTSIDE  = Vector2.new(-0.15, 2.05)
+local ENTRY_DOOR_OUTSIDE = Vector2.new(0.15, 1.15)
+local ENTRY_DOOR_INSIDE  = Vector2.new(1.15, 1.15)
+local EXIT_DOOR_INSIDE   = Vector2.new(1.15, 1.45)
+local EXIT_DOOR_OUTSIDE  = Vector2.new(-0.35, 1.45)
 
 local function statusLabel(root: Frame): TextLabel
 	local label = Instance.new("TextLabel")
@@ -45,7 +45,7 @@ local function render(animator: Types.SpriteAnimator, label: TextLabel, x: numbe
 	animator.Play(clip)
 	local z = Iso.characterZIndex(x, y)
 	animator.Update(dt, z, facing)
-	label.ZIndex = Iso.computeZIndex(x, y, 9)
+	label.ZIndex = if x < 0.9 or y < 0.9 then z + 1 else Iso.getInteriorZIndex(x, y, 9)
 end
 
 local function makeRing(parent: Instance, post: Types.PlacedItem, radius: number): Folder
@@ -280,7 +280,7 @@ function GuestController.new(parent: Instance, initialState: Types.ClubState): T
 			arrivalAt = clock + C.ArrivalInterval
 		end
 		local first = queue[1]
-		local firstAtHead = first and math.abs(first.GY - 1.35) < 0.1
+		local firstAtHead = first and math.abs(first.GY - 1.85) < 0.15
 		if first and first.Mode == "Queueing" and clock >= admissionAt and firstAtHead and nav.Walkable(1, 1) then
 			first.Mode, first.Activity = "Entering", "Entering"
 			first.Path, first.PathIndex = { ENTRY_DOOR_OUTSIDE, ENTRY_DOOR_INSIDE }, 1
@@ -395,12 +395,12 @@ function GuestController.new(parent: Instance, initialState: Types.ClubState): T
 			local text = if g.Mode == "Escorted" or g.GuardUid then "ESCORTED OUT"
 				elseif g.CelebrityName then g.CelebrityName
 				elseif g.IsRowdy then "ROWDY CRASHER"
-				elseif g.Mode == "Queueing" then (if math.abs(g.GY - 1.35) < 0.2 then "NEXT IN LINE" else "IN QUEUE")
+				elseif g.Mode == "Queueing" then (if math.abs(g.GY - 1.85) < 0.2 then "NEXT IN LINE" else "IN QUEUE")
 				elseif g.Mode == "VIPChilling" then "VIP LOUNGE"
 				elseif g.IsVIP then "HIGH ROLLER"
 				else string.format("%s | %d%%", g.Mode, math.round(g.Happiness))
 			g.Status.Text = text
-			g.Status.Visible = g.IsVIP or g.IsRowdy or g.Happiness < 60 or (g.Mode == "Queueing" and math.abs(g.GY - 1.35) < 0.2)
+			g.Status.Visible = g.IsVIP or g.IsRowdy or g.Happiness < 60 or (g.Mode == "Queueing" and math.abs(g.GY - 1.85) < 0.2)
 			g.Status.TextColor3 = if g.IsRowdy or g.Happiness < 40 then Color3.fromRGB(255, 120, 125)
 				elseif g.IsVIP then Color3.fromRGB(255, 219, 80) else Color3.fromRGB(180, 255, 206)
 			local guestFacing: "Left" | "Right" = "Right"

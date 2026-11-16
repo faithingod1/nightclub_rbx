@@ -28,9 +28,9 @@ function SocialPanel.new(parent: GuiObject, initial: Types.ClubState, action: Re
 		table.insert(roots, frame)
 		return frame
 	end
-	local toolbar = panel("ClubFeatures", 740, 34, UDim2.new(0.5, 70, 0, 64), Vector2.new(0.5, 0))
+	local toolbar = panel("ClubFeatures", 760, 34, UDim2.new(0.5, 40, 0, 110), Vector2.new(0.5, 0))
 	local friendBar = panel("FriendsBar", 760, 54, UDim2.new(0.5, 0, 1, -6), Vector2.new(0.5, 1))
-	local mission = panel("CelebrityMission", 740, 36, UDim2.new(0.5, 70, 0, 102), Vector2.new(0.5, 0))
+
 	local function label(parentGui: GuiObject, text: string, x: number, y: number, width: number, height: number): TextLabel
 		local ui = Instance.new("TextLabel")
 		ui.Size, ui.Position = UDim2.fromOffset(width, height), UDim2.fromOffset(x, y)
@@ -41,8 +41,10 @@ function SocialPanel.new(parent: GuiObject, initial: Types.ClubState, action: Re
 		ui.Parent = parentGui
 		return ui
 	end
-	local missionText = label(mission, "", 8, 2, 724, 32)
-	local status = label(toolbar, "", 480, 0, 250, 34)
+	local status = label(toolbar, "", 272, 0, 380, 34)
+	local previewTag = label(toolbar, if social.Parent and social.Parent:GetAttribute("SessionOnly") then "Unsaved (Studio)" else "", 652, 0, 104, 34)
+	previewTag.TextColor3 = Color3.fromRGB(255, 218, 100)
+	previewTag.TextSize = 10
 	local function button(parentGui: GuiObject, text: string, x: number, y: number, width: number, height: number, callback: () -> ()): TextButton
 		local ui = Instance.new("TextButton")
 		ui.Size, ui.Position = UDim2.fromOffset(width, height), UDim2.fromOffset(x, y)
@@ -149,6 +151,13 @@ function SocialPanel.new(parent: GuiObject, initial: Types.ClubState, action: Re
 			if not uiScale then uiScale = Instance.new("UIScale"); uiScale.Parent = frame end
 			uiScale.Scale = if frame == modal then math.min(1, (parent.AbsoluteSize.X - 24) / 420) else scale
 		end
+		if typeof(parent) == "Instance" then
+			local topHud = parent:FindFirstChild("TopHud", true)
+			if topHud and topHud:IsA("GuiObject") then
+				local topY = topHud.Position.Y.Offset + topHud.Size.Y.Offset + 6
+				toolbar.Position = UDim2.new(topHud.Position.X.Scale, topHud.Position.X.Offset, 0, topY)
+			end
+		end
 	end
 	local resize = parent:GetPropertyChangedSignal("AbsoluteSize"):Connect(fit)
 	fit()
@@ -160,10 +169,10 @@ function SocialPanel.new(parent: GuiObject, initial: Types.ClubState, action: Re
 			expandBtn.Text = if tier then string.format("Expand %dx%d - $%d", tier.Size, tier.Size, tier.Cost) else "Maximum size: 20 x 20"
 			local visit = state.Celebrity
 			if visit and visit.EndsAt > os.time() then
-				missionText.Text = if visit.Rewarded then string.format("%s: mission complete! +$%d", visit.Name, visit.Reward)
-					else string.format("%s | Play %s + VIP booth + stocked mocktails + active DJ set: %d/%ds | Reward $%d | %ds left",
-						visit.Name, visit.Genre, visit.Progress, visit.Goal, visit.Reward, math.max(0, visit.EndsAt - os.time()))
-			else missionText.Text = string.format("%s | Celebrity visit in %ds", Config.MUSIC_GENRES[state.ActiveGenre].Name, math.max(0, state.NextCelebrityAt - os.time())) end
+				status.Text = if visit.Rewarded then string.format("%s: mission complete! +$%d", visit.Name, visit.Reward)
+					else string.format("%s | Play %s + VIP booth: %d/%ds | Reward $%d",
+						visit.Name, visit.Genre, visit.Progress, visit.Goal, visit.Reward)
+			else status.Text = string.format("%s • Celebrity in %ds", Config.MUSIC_GENRES[state.ActiveGenre].Name, math.max(0, state.NextCelebrityAt - os.time())) end
 		end,
 		Destroy = function() destroyed = true; resize:Disconnect(); for _, frame in roots do frame:Destroy() end end,
 	}

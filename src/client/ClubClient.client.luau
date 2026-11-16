@@ -572,8 +572,8 @@ end)
 local TopHud = Instance.new("Frame")
 TopHud.Name = "TopHud"
 TopHud.AnchorPoint = Vector2.new(0.5, 0)
-TopHud.Position = UDim2.new(0.5, 70, 0, 8)
-TopHud.Size = UDim2.fromOffset(740, 50)
+TopHud.Position = UDim2.new(0.5, 40, 0, 52)
+TopHud.Size = UDim2.fromOffset(760, 52)
 TopHud.BackgroundColor3 = Color3.fromRGB(26, 39, 55)
 TopHud.ZIndex = 90000
 TopHud.Parent = Backdrop
@@ -1086,11 +1086,11 @@ local function fitHud()
 		uiScale.Scale = scale
 	end
 
-	local isWide = size.X >= 1100
+	local isWide = size.X >= 1200
 	local insetY = GuiService:GetGuiInset().Y
-	local unibarClearanceY = math.max(insetY, 54)
+	local unibarClearanceY = math.max(insetY, 52)
 	local topY = if isWide then 8 else unibarClearanceY
-	local topOffsetX = if isWide then 70 else 0
+	local topOffsetX = if isWide then 90 else 40
 	TopHud.Position = UDim2.new(0.5, topOffsetX, 0, topY)
 end
 

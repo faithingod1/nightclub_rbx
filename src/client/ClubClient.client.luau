@@ -572,8 +572,8 @@ end)
 local TopHud = Instance.new("Frame")
 TopHud.Name = "TopHud"
 TopHud.AnchorPoint = Vector2.new(0.5, 0)
-TopHud.Position = UDim2.new(0.5, 0, 0, 12)
-TopHud.Size = UDim2.fromOffset(800, 54)
+TopHud.Position = UDim2.new(0.5, 70, 0, 8)
+TopHud.Size = UDim2.fromOffset(740, 50)
 TopHud.BackgroundColor3 = Color3.fromRGB(26, 39, 55)
 TopHud.ZIndex = 90000
 TopHud.Parent = Backdrop
@@ -606,12 +606,12 @@ local StatLabels: { TextLabel } = {}
 for i, title in { "CASH", "POPULARITY", "LUXURY", "MOCKTAILS", "DJ SET" } do
 	local badge = Instance.new("TextLabel")
 	badge.Name = title
-	badge.Position = UDim2.fromOffset(128 + (i - 1) * 132, 6)
-	badge.Size = UDim2.fromOffset(124, 42)
+	badge.Position = UDim2.fromOffset(128 + (i - 1) * 122, 5)
+	badge.Size = UDim2.fromOffset(116, 40)
 	badge.BackgroundColor3 = if i == 1 then Color3.fromRGB(47, 122, 78) else Color3.fromRGB(35, 119, 162)
 	badge.TextColor3 = Color3.new(1, 1, 1)
 	badge.Font = Enum.Font.GothamBold
-	badge.TextSize = 13
+	badge.TextSize = 12
 	badge.Text = title
 	badge.ZIndex = 90001
 	local corner = Instance.new("UICorner")
@@ -625,8 +625,8 @@ end
 -- Sub banner for active mode instructions
 local SubBanner = Instance.new("TextLabel")
 SubBanner.AnchorPoint = Vector2.new(0.5, 0)
-SubBanner.Position = UDim2.new(0.5, 0, 1, -112)
-SubBanner.Size = UDim2.fromOffset(680, 26)
+SubBanner.Position = UDim2.new(0.5, 0, 1, -156)
+SubBanner.Size = UDim2.fromOffset(680, 24)
 SubBanner.BackgroundColor3 = Color3.fromRGB(20, 16, 36)
 SubBanner.TextColor3 = Color3.fromRGB(226, 232, 240)
 SubBanner.Font = Enum.Font.GothamMedium
@@ -647,15 +647,15 @@ subStroke.Parent = SubBanner
 local BottomDock = Instance.new("Frame")
 BottomDock.Name = "BottomDock"
 BottomDock.AnchorPoint = Vector2.new(0.5, 1)
-BottomDock.Position = UDim2.new(0.5, 0, 1, -12)
-BottomDock.Size = UDim2.fromOffset(760, 88)
+BottomDock.Position = UDim2.new(0.5, 0, 1, -66)
+BottomDock.Size = UDim2.fromOffset(680, 62)
 BottomDock.BackgroundColor3 = Color3.fromRGB(26, 43, 62)
 BottomDock.ZIndex = 90000
 BottomDock.Parent = Backdrop
 GlossyUI.style(BottomDock)
 
 local dockCorner = Instance.new("UICorner")
-dockCorner.CornerRadius = UDim.new(0, 12)
+dockCorner.CornerRadius = UDim.new(0, 10)
 dockCorner.Parent = BottomDock
 
 local dockStroke = Instance.new("UIStroke")
@@ -667,15 +667,15 @@ local DockLayout = Instance.new("UIListLayout")
 DockLayout.FillDirection = Enum.FillDirection.Horizontal
 DockLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 DockLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-DockLayout.Padding = UDim.new(0, 6)
+DockLayout.Padding = UDim.new(0, 5)
 DockLayout.Parent = BottomDock
 
 -- Build Items Shelf (opens above BottomDock when Build is active)
 local BuildShelf = Instance.new("Frame")
 BuildShelf.Name = "BuildShelf"
 BuildShelf.AnchorPoint = Vector2.new(0.5, 1)
-BuildShelf.Position = UDim2.new(0.5, 0, 1, -150)
-BuildShelf.Size = UDim2.fromOffset(920, 80)
+BuildShelf.Position = UDim2.new(0.5, 0, 1, -134)
+BuildShelf.Size = UDim2.fromOffset(880, 72)
 BuildShelf.BackgroundColor3 = Color3.fromRGB(18, 14, 34)
 BuildShelf.ZIndex = 90000
 BuildShelf.Visible = false
@@ -776,7 +776,7 @@ local DockButtons: { [string]: TextButton } = {}
 
 local function makeDockButton(id: string, label: string, color: Color3, width: number, onClick: () -> ()): TextButton
 	local btn = Instance.new("TextButton")
-	btn.Size = UDim2.fromOffset(if width > 50 then 76 else 34, 68)
+	btn.Size = UDim2.fromOffset(if width > 50 then 68 else 30, 52)
 	btn.BackgroundColor3 = color
 	btn.Text = if id == "ZoomIn" then "+" elseif id == "ZoomOut" then "-" else ""
 	btn.TextWrapped = true
@@ -790,9 +790,9 @@ local function makeDockButton(id: string, label: string, color: Color3, width: n
 	local names = {DJRefresh="DJ Set", DJBass="Bass Drop", DJShout="Shoutout", Restock="Mocktails", BuildShop="Build", MoveItem="Move", SellItem="Sell"}
 	if names[id] then
 		local caption = Instance.new("TextLabel")
-		caption.Size, caption.Position = UDim2.new(1,0,0,20), UDim2.fromOffset(0,45)
+		caption.Size, caption.Position = UDim2.new(1,0,0,16), UDim2.fromOffset(0,34)
 		caption.BackgroundTransparency = 1
-		caption.Text, caption.Font, caption.TextSize = names[id], Enum.Font.GothamBold, 11
+		caption.Text, caption.Font, caption.TextSize = names[id], Enum.Font.GothamBold, 10
 		caption.TextColor3, caption.ZIndex = Color3.new(1,1,1), 90002
 		caption.Parent = btn
 	end
@@ -867,7 +867,7 @@ makeDockButton("ZoomOut", "🔍 -", Color3.fromRGB(39, 39, 58), 44, function()
 end)
 
 local ZoomLabel = Instance.new("TextLabel")
-ZoomLabel.Size = UDim2.fromOffset(46, 68)
+ZoomLabel.Size = UDim2.fromOffset(42, 52)
 ZoomLabel.BackgroundColor3 = Color3.fromRGB(30, 27, 46)
 ZoomLabel.TextColor3 = Color3.fromRGB(226, 232, 240)
 ZoomLabel.Font = Enum.Font.GothamBold
@@ -1075,7 +1075,8 @@ end)
 
 -- Fit the toolbars on narrow windows while leaving world zoom independent.
 local function fitHud()
-	local scale = math.min(1, math.max(0.1, (Backdrop.AbsoluteSize.X - 24) / 920))
+	local size = Backdrop.AbsoluteSize
+	local scale = math.min(1, math.max(0.1, (size.X - 24) / 760))
 	for _, panel in { TopHud, SubBanner, BottomDock, BuildShelf } do
 		local uiScale = panel:FindFirstChildOfClass("UIScale")
 		if not uiScale then
@@ -1084,16 +1085,36 @@ local function fitHud()
 		end
 		uiScale.Scale = scale
 	end
+
+	local isWide = size.X >= 1100
+	local insetY = GuiService:GetGuiInset().Y
+	local unibarClearanceY = math.max(insetY, 54)
+	local topY = if isWide then 8 else unibarClearanceY
+	local topOffsetX = if isWide then 70 else 0
+	TopHud.Position = UDim2.new(0.5, topOffsetX, 0, topY)
 end
+
 local function frameClub()
 	fitHud()
 	local size = Backdrop.AbsoluteSize
 	if size.X < 1 or size.Y < 1 then return end
 	local roomWidth = (CurrentState.GridWidth + CurrentState.GridHeight) * 64
 	local roomHeight = (CurrentState.GridWidth + CurrentState.GridHeight) * 32
-	currentZoom = math.clamp(math.min((size.X - 90) / (roomWidth + 128), (size.Y - 210) / (roomHeight + 140)), MIN_ZOOM, 1)
+	local topSafeY = 108
+	local bottomSafeY = math.max(topSafeY + 100, size.Y - 136)
+	local safeHeight = bottomSafeY - topSafeY
+	local safeCenterY = math.floor((topSafeY + bottomSafeY) * 0.5)
+
+	currentZoom = math.clamp(math.min((size.X - 90) / (roomWidth + 128), (safeHeight - 30) / (roomHeight + 100)), MIN_ZOOM, 1)
 	WorldScale.Scale = currentZoom
-	WorldCanvas.Position = UDim2.new(0.5, 0, 0, 76 + math.max(0, (size.Y - 210 - roomHeight * currentZoom) / 2))
+
+	local midGX = (CurrentState.GridWidth + 1) * 0.5
+	local midGY = (CurrentState.GridHeight + 1) * 0.5
+	local gridMidPx = Iso.gridToScreen(midGX, midGY)
+	local targetCanvasX = (size.X * 0.5) - (gridMidPx.X * currentZoom)
+	local targetCanvasY = (safeCenterY + 24) - (gridMidPx.Y * currentZoom)
+
+	WorldCanvas.Position = UDim2.fromOffset(math.round(targetCanvasX), math.round(targetCanvasY))
 	refreshHud()
 end
 Backdrop:GetPropertyChangedSignal("AbsoluteSize"):Connect(frameClub)
@@ -1104,7 +1125,7 @@ local NavigationPad = Instance.new("Frame")
 NavigationPad.Name = "CameraNavigation"
 NavigationPad.Size = UDim2.fromOffset(110,110)
 NavigationPad.AnchorPoint = Vector2.new(1,1)
-NavigationPad.Position = UDim2.new(1,-14,1,-112)
+NavigationPad.Position = UDim2.new(1,-16,1,-136)
 NavigationPad.BackgroundTransparency = 1
 NavigationPad.ZIndex = 90010
 NavigationPad.Parent = Backdrop

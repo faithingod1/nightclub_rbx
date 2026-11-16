@@ -28,25 +28,21 @@ function SocialPanel.new(parent: GuiObject, initial: Types.ClubState, action: Re
 		table.insert(roots, frame)
 		return frame
 	end
-	local toolbar = panel("ClubFeatures", 980, 38, UDim2.new(0.5, 0, 0, 108), Vector2.new(0.5, 0))
-	local friendBar = panel("FriendsBar", 980, 70, UDim2.new(0.5, 0, 1, -8), Vector2.new(0.5, 1))
-	local mission = panel("CelebrityMission", 980, 48, UDim2.new(0.5, 0, 0, 152), Vector2.new(0.5, 0))
+	local toolbar = panel("ClubFeatures", 740, 34, UDim2.new(0.5, 70, 0, 64), Vector2.new(0.5, 0))
+	local friendBar = panel("FriendsBar", 760, 54, UDim2.new(0.5, 0, 1, -6), Vector2.new(0.5, 1))
+	local mission = panel("CelebrityMission", 740, 36, UDim2.new(0.5, 70, 0, 102), Vector2.new(0.5, 0))
 	local function label(parentGui: GuiObject, text: string, x: number, y: number, width: number, height: number): TextLabel
 		local ui = Instance.new("TextLabel")
 		ui.Size, ui.Position = UDim2.fromOffset(width, height), UDim2.fromOffset(x, y)
 		ui.BackgroundTransparency = 1
 		ui.TextColor3 = Color3.new(1, 1, 1)
-		ui.Font, ui.TextSize, ui.TextWrapped = Enum.Font.GothamBold, 12, true
+		ui.Font, ui.TextSize, ui.TextWrapped = Enum.Font.GothamBold, 11, true
 		ui.Text, ui.ZIndex = text, parentGui.ZIndex + 1
 		ui.Parent = parentGui
 		return ui
 	end
-	local missionText = label(mission, "", 8, 2, 964, 44)
-	if social.Parent and social.Parent:GetAttribute("SessionOnly") then
-		local preview = label(mission, "STUDIO PREVIEW - progress is not saved", 8, 48, 964, 20)
-		preview.TextColor3 = Color3.fromRGB(255, 218, 100)
-	end
-	local status = label(toolbar, "", 570, 0, 400, 38)
+	local missionText = label(mission, "", 8, 2, 724, 32)
+	local status = label(toolbar, "", 480, 0, 250, 34)
 	local function button(parentGui: GuiObject, text: string, x: number, y: number, width: number, height: number, callback: () -> ()): TextButton
 		local ui = Instance.new("TextButton")
 		ui.Size, ui.Position = UDim2.fromOffset(width, height), UDim2.fromOffset(x, y)
@@ -87,24 +83,33 @@ function SocialPanel.new(parent: GuiObject, initial: Types.ClubState, action: Re
 		end)
 	end
 	button(modal, "Close", 150, 207, 120, 28, function() modal.Visible = false end)
-	button(toolbar, "DJ Genres", 6, 4, 102, 30, function()
+	local djGenresBtn = button(toolbar, "DJ Genres", 6, 3, 90, 28, function()
 		if visiting then status.Text = "Return home to change music" else modal.Visible = not modal.Visible end
 	end)
-	local expand: TextButton
-	expand = button(toolbar, "Expand Club", 114, 4, 168, 30, function()
+	local expandBtn: TextButton
+	expandBtn = button(toolbar, "Expand Club", 102, 3, 150, 28, function()
 		if visiting then status.Text = "Return home to expand"; return end
 		request(action, "ExpandClub", {}, function() end)
 	end)
-	button(toolbar, "Return Home", 288, 4, 118, 30, function()
+	local returnHomeBtn: TextButton
+	returnHomeBtn = button(toolbar, "Return Home", 258, 3, 105, 28, function()
 		request(social, "Home", nil, function(home)
 			visiting = nil
+			returnHomeBtn.Visible = false
+			expandBtn.Visible = true
+			djGenresBtn.Visible = true
 			onHome(home)
 		end)
 	end)
-	button(toolbar, "Tip DJ $" .. Config.TIP_AMOUNT, 412, 4, 148, 30, function()
+	returnHomeBtn.Visible = false
+
+	local tipDjBtn: TextButton
+	tipDjBtn = button(toolbar, "Tip DJ $" .. Config.TIP_AMOUNT, 368, 3, 105, 28, function()
 		if not visiting then status.Text = "Visit a friend's club to tip their DJ"; return end
 		request(social, "Tip", visiting, function() end)
 	end)
+	tipDjBtn.Visible = false
+
 	local friendButtons: { TextButton } = {}
 	local function drawFriends()
 		for _, ui in friendButtons do ui:Destroy() end
@@ -113,10 +118,12 @@ function SocialPanel.new(parent: GuiObject, initial: Types.ClubState, action: Re
 			local friend = cards[(page - 1) * 6 + slot]
 			if not friend then break end
 			local ui = button(friendBar, (if friend.Online then "ONLINE" else "SAVED CLUB") .. "\n" .. friend.Name,
-				125 + (slot - 1) * 128, 7, 120, 56, function()
+				110 + (slot - 1) * 100, 4, 96, 46, function()
 				request(social, "Visit", friend.UserId, function(club)
 					visiting = friend.UserId
 					modal.Visible = false
+					returnHomeBtn.Visible = true
+					tipDjBtn.Visible = true
 					onVisit(club, friend.UserId)
 					status.Text = "Visiting " .. friend.Name .. " (read-only snapshot)"
 				end)
@@ -128,15 +135,15 @@ function SocialPanel.new(parent: GuiObject, initial: Types.ClubState, action: Re
 		request(social, "Friends", nil, function(result)
 			cards, page = result.Cards, 1
 			drawFriends()
-			status.Text = if result.Preview then "Studio preview - progress is not saved"
+			status.Text = if result.Preview then "Studio preview (unsaved)"
 				elseif #cards == 0 then "No friends found. Invite friends on Roblox." else "Select a friend to visit their club"
 		end)
 	end
-	button(friendBar, "FRIENDS\nRefresh", 6, 7, 80, 56, refreshFriends)
-	button(friendBar, "<", 91, 7, 28, 56, function() page = math.max(1, page - 1); drawFriends() end)
-	button(friendBar, ">", 910, 7, 60, 56, function() page = math.min(math.max(1, math.ceil(#cards / 6)), page + 1); drawFriends() end)
+	button(friendBar, "FRIENDS\nRefresh", 4, 4, 70, 46, refreshFriends)
+	button(friendBar, "<", 78, 4, 26, 46, function() page = math.max(1, page - 1); drawFriends() end)
+	button(friendBar, ">", 712, 4, 42, 46, function() page = math.min(math.max(1, math.ceil(#cards / 6)), page + 1); drawFriends() end)
 	local function fit()
-		local scale = math.min(1, math.max(0.1, (parent.AbsoluteSize.X - 24) / 980))
+		local scale = math.min(1, math.max(0.1, (parent.AbsoluteSize.X - 24) / 760))
 		for _, frame in roots do
 			local uiScale = frame:FindFirstChildOfClass("UIScale")
 			if not uiScale then uiScale = Instance.new("UIScale"); uiScale.Parent = frame end
@@ -150,7 +157,7 @@ function SocialPanel.new(parent: GuiObject, initial: Types.ClubState, action: Re
 		Update = function(newState: Types.ClubState)
 			state = newState
 			local tier = Config.EXPANSIONS[state.GridWidth]
-			expand.Text = if tier then string.format("Expand %dx%d - $%d", tier.Size, tier.Size, tier.Cost) else "Maximum size: 20 x 20"
+			expandBtn.Text = if tier then string.format("Expand %dx%d - $%d", tier.Size, tier.Size, tier.Cost) else "Maximum size: 20 x 20"
 			local visit = state.Celebrity
 			if visit and visit.EndsAt > os.time() then
 				missionText.Text = if visit.Rewarded then string.format("%s: mission complete! +$%d", visit.Name, visit.Reward)

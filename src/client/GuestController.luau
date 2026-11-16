@@ -34,8 +34,9 @@ local function render(animator: Types.SpriteAnimator, label: TextLabel, x: numbe
 	local point = Iso.gridToScreen(x, y)
 	animator.Root.Position = UDim2.fromOffset(point.X, point.Y)
 	animator.Play(clip)
-	animator.Update(dt, Iso.getZIndex(x, y, 5), facing)
-	label.ZIndex = Iso.getZIndex(x, y, 9)
+	local z = Iso.characterZIndex(x, y)
+	animator.Update(dt, z, facing)
+	label.ZIndex = Iso.computeZIndex(x, y, 9)
 end
 
 local function makeRing(parent: Instance, post: Types.PlacedItem, radius: number): Folder

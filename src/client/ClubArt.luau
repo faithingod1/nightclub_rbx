@@ -104,39 +104,52 @@ function Art.room(parent: Instance, width: number, height: number)
 			local a = if side then p(i-0.5,0.5) else p(0.5,i-0.5)
 			local b = if side then p(i+0.5,0.5) else p(0.5,i+0.5)
 			local lift = Vector2.new(0,110)
-			polygon(parent,{a,b,b-lift,a-lift},if side then rgb(29,40,54) else rgb(39,49,65),4)
+			local wallZ = Iso.getCutawayWallZIndex(if side then i else 0.5, if side then 0.5 else i, false)
+			polygon(parent,{a,b,b-lift,a-lift},if side then rgb(29,40,54) else rgb(39,49,65),wallZ)
 			-- Geometric neon strips on dark panels, as in the reference lounge.
 			local middle = (a+b)*0.5
-			line(parent,a-Vector2.new(0,54),middle-Vector2.new(0,94),rgb(184,83,219),4,2)
-			line(parent,middle-Vector2.new(0,94),b-Vector2.new(0,51),rgb(77,207,238),4,2)
-			line(parent,a-Vector2.new(0,8),b-Vector2.new(0,8),rgb(111,81,57),4,5)
+			line(parent,a-Vector2.new(0,54),middle-Vector2.new(0,94),rgb(184,83,219),wallZ,2)
+			line(parent,middle-Vector2.new(0,94),b-Vector2.new(0,51),rgb(77,207,238),wallZ,2)
+			line(parent,a-Vector2.new(0,8),b-Vector2.new(0,8),rgb(111,81,57),wallZ,5)
 
-			line(parent,a-lift,b-lift,rgb(106,192,209),4,5)
+			line(parent,a-lift,b-lift,rgb(106,192,209),wallZ,5)
 			if i%3 == 0 then
 				local lamp=(a+b)*0.5-Vector2.new(0,77)
-				rect(parent,lamp.X-7,lamp.Y-8,14,23,rgb(16,24,37),4,4)
-				rect(parent,lamp.X-3,lamp.Y-4,6,15,rgb(255,218,149),4,3)
+				rect(parent,lamp.X-7,lamp.Y-8,14,23,rgb(16,24,37),wallZ,4)
+				rect(parent,lamp.X-3,lamp.Y-4,6,15,rgb(255,218,149),wallZ,3)
 			end
-			line(parent,a,b,rgb(17,23,34),4,8)
+			line(parent,a,b,rgb(17,23,34),wallZ,8)
 		end
 	end
 	-- Entrance at tile (1,1), with a recessed opening and open glass leaf.
 	local da, db = p(0.5,0.5), p(1.5,0.5)
 	local lift = Vector2.new(0,116)
-	polygon(parent,{da,db,db-lift,da-lift},rgb(9,15,25),4)
-	line(parent,da,da-lift,rgb(181,139,74),4,7)
-	line(parent,db,db-lift,rgb(181,139,74),4,7)
-	line(parent,da-lift,db-lift,rgb(235,196,111),4,8)
+	local doorZ = Iso.getCutawayWallZIndex(1, 0.5, false)
+	polygon(parent,{da,db,db-lift,da-lift},rgb(9,15,25),doorZ)
+	line(parent,da,da-lift,rgb(181,139,74),doorZ,7)
+	line(parent,db,db-lift,rgb(181,139,74),doorZ,7)
+	line(parent,da-lift,db-lift,rgb(235,196,111),doorZ,8)
 	local leaf = db+Vector2.new(23,-15)
-	polygon(parent,{db,leaf,leaf-Vector2.new(0,104),db-Vector2.new(0,104)},rgb(49,108,130),4)
-	line(parent,leaf,leaf-Vector2.new(0,104),rgb(156,220,227),4,3)
-	line(parent,db-Vector2.new(0,50),leaf-Vector2.new(0,50),rgb(231,197,116),4,4)
-	polygon(parent,{da,db,db+Vector2.new(-18,9),da+Vector2.new(-18,9)},rgb(160,62,92),4)
+	polygon(parent,{db,leaf,leaf-Vector2.new(0,104),db-Vector2.new(0,104)},rgb(49,108,130),doorZ)
+	line(parent,leaf,leaf-Vector2.new(0,104),rgb(156,220,227),doorZ,3)
+	line(parent,db-Vector2.new(0,50),leaf-Vector2.new(0,50),rgb(231,197,116),doorZ,4)
+	polygon(parent,{da,db,db+Vector2.new(-18,9),da+Vector2.new(-18,9)},rgb(160,62,92),doorZ)
 	local entrance = (da+db)*0.5-lift
-	text(parent,"OPEN",entrance.X-23,entrance.Y-27,46,22,4,rgb(255,221,137))
-	local sign = p(3,0.5)
-	rect(parent,sign.X-66,sign.Y-102,132,34,rgb(12,20,34),4,8)
-	text(parent,"NEON SOCIAL",sign.X-65,sign.Y-101,130,32,4,rgb(110,240,244))
+	text(parent,"OPEN",entrance.X-23,entrance.Y-27,46,22,doorZ+2,rgb(255,221,137))
+	local sign = p(3.5,0.5)
+	local signZ = Iso.getCutawayWallZIndex(3.5, 0.5, true)
+	rect(parent,sign.X-66,sign.Y-96,132,32,rgb(12,20,34),signZ,8)
+	text(parent,"NEON SOCIAL",sign.X-65,sign.Y-95,130,30,signZ+1,rgb(110,240,244))
+
+	-- Exterior sidewalk & velvet rope along the queue axis (gx = 0.18, gy = 1..6)
+	local rStart = p(0.18, 1.2)
+	local rEnd = p(0.18, 6.2)
+	line(parent, rStart, rEnd, rgb(210, 40, 60), 45, 3)
+	for slot = 1, 6 do
+		local stanchion = p(0.18, 1.2 + (slot - 1) * 0.95)
+		rect(parent, stanchion.X - 3, stanchion.Y - 14, 6, 14, rgb(255, 215, 60), 46, 2)
+		rect(parent, stanchion.X - 5, stanchion.Y - 18, 10, 5, rgb(255, 230, 110), 46, 3)
+	end
 	-- Raised front edges give the room a cutaway-platform silhouette.
 	local front = p(width+0.5,height+0.5)
 	for _, edge in {p(width+0.5,0.5),p(0.5,height+0.5)} do

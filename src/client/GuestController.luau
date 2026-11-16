@@ -8,8 +8,17 @@ local SpriteAnimator = require(script.Parent:WaitForChild("SpriteAnimator"))
 local Navigation = require(script.Parent:WaitForChild("GuestNavigation"))
 local GuestController = {}
 local C = Config.CROWD
+local function getQueueSlotCoords(slotIndex: number): (number, number, "Left" | "Right")
+	local qx = 0.18
+	local qy = 1.35 + (slotIndex - 1) * 0.78
+	return qx, qy, "Right"
+end
+
 local ENTRANCE = Vector2.new(1, 1)
-local EXIT = Vector2.new(1, -1)
+local ENTRY_DOOR_OUTSIDE = Vector2.new(0.45, 1.20)
+local ENTRY_DOOR_INSIDE  = Vector2.new(1.35, 1.20)
+local EXIT_DOOR_INSIDE   = Vector2.new(1.35, 1.85)
+local EXIT_DOOR_OUTSIDE  = Vector2.new(-0.15, 2.05)
 
 local function statusLabel(root: Frame): TextLabel
 	local label = Instance.new("TextLabel")
@@ -119,8 +128,8 @@ function GuestController.new(parent: Instance, initialState: Types.ClubState): T
 
 	local function leave(g: Types.CrowdGuest): boolean
 		release(g)
-		if route(g, ENTRANCE, "Leaving") then
-			table.insert(g.Path, EXIT)
+		if route(g, EXIT_DOOR_INSIDE, "Leaving") then
+			table.insert(g.Path, EXIT_DOOR_OUTSIDE)
 			return true
 		end
 		g.Path, g.PathIndex = {}, 1
@@ -175,9 +184,9 @@ function GuestController.new(parent: Instance, initialState: Types.ClubState): T
 		local color = if rowdy then Color3.fromRGB(240, 80, 90) else Color3.fromHSV((nextId * 0.13) % 1, 0.65, 0.95)
 		local animator = SpriteAnimator.new(root, Config.GUEST_SPRITE, color, vip)
 		local label = statusLabel(animator.Root)
-		local y = -queueCount * 0.85
+		local qx, qy = getQueueSlotCoords(queueCount + 1)
 		table.insert(guests, {
-			Id = nextId, GX = 1, GY = y, TargetGX = 1, TargetGY = y,
+			Id = nextId, GX = qx, GY = qy, TargetGX = qx, TargetGY = qy,
 			Speed = rng:NextNumber(1.5, 2.1), Happiness = 100, IsVIP = vip,
 			Mode = "Queueing", SpriteColor = color, GuiRoot = animator.Root,
 			Animator = animator, Status = label, Path = {}, PathIndex = 1,
@@ -248,7 +257,9 @@ function GuestController.new(parent: Instance, initialState: Types.ClubState): T
 		local queue: { Types.CrowdGuest } = {}
 		for _, g in guests do if g.Mode == "Queueing" then table.insert(queue, g) end end
 		for index, g in queue do
-			g.TargetGY = -(index - 1) * 0.85
+			local qx, qy = getQueueSlotCoords(index)
+			g.TargetGX = qx
+			g.TargetGY = qy
 		end
 		local celebrity = state.Celebrity
 		local celebrityPresent = false
@@ -256,7 +267,7 @@ function GuestController.new(parent: Instance, initialState: Types.ClubState): T
 			if g.CelebrityId then
 				if celebrity and g.CelebrityId == celebrity.Id and celebrity.EndsAt > os.time() then celebrityPresent = true
 				elseif g.Mode ~= "Leaving" then
-					if g.Mode == "Queueing" then g.Mode = "Leaving"; g.Path = { EXIT }; g.PathIndex = 1 else leave(g) end
+					if g.Mode == "Queueing" then g.Mode = "Leaving"; g.Path = { EXIT_DOOR_OUTSIDE }; g.PathIndex = 1 else leave(g) end
 				end
 			end
 		end
@@ -269,9 +280,10 @@ function GuestController.new(parent: Instance, initialState: Types.ClubState): T
 			arrivalAt = clock + C.ArrivalInterval
 		end
 		local first = queue[1]
-		if first and first.Mode == "Queueing" and clock >= admissionAt and math.abs(first.GY) < 0.05 and nav.Walkable(1, 1) then
+		local firstAtHead = first and math.abs(first.GY - 1.35) < 0.1
+		if first and first.Mode == "Queueing" and clock >= admissionAt and firstAtHead and nav.Walkable(1, 1) then
 			first.Mode, first.Activity = "Entering", "Entering"
-			first.Path, first.PathIndex = { ENTRANCE }, 1
+			first.Path, first.PathIndex = { ENTRY_DOOR_OUTSIDE, ENTRY_DOOR_INSIDE }, 1
 			admissionAt = clock + C.AdmissionInterval
 		end
 		-- Claim covered crashers before applying their happiness penalty.
@@ -281,7 +293,7 @@ function GuestController.new(parent: Instance, initialState: Types.ClubState): T
 				local inside = g.Mode ~= "Queueing" and g.Mode ~= "Entering" and g.Mode ~= "Leaving"
 				if g.IsRowdy and inside and not g.GuardUid and (Vector2.new(g.GX, g.GY) - Vector2.new(guard.Post.GX, guard.Post.GY)).Magnitude <= guard.Radius then
 					local path = nav.Path(Vector2.new(guard.GX, guard.GY), Vector2.new(g.GX, g.GY))
-					if path and nav.Path(Vector2.new(g.GX, g.GY), ENTRANCE) then
+					if path and nav.Path(Vector2.new(g.GX, g.GY), EXIT_DOOR_INSIDE) then
 						release(g)
 						g.Mode, g.GuardUid = "Escorted", uid
 						g.Path = {}
@@ -383,12 +395,12 @@ function GuestController.new(parent: Instance, initialState: Types.ClubState): T
 			local text = if g.Mode == "Escorted" or g.GuardUid then "ESCORTED OUT"
 				elseif g.CelebrityName then g.CelebrityName
 				elseif g.IsRowdy then "ROWDY CRASHER"
-				elseif g.Mode == "Queueing" then "IN QUEUE"
+				elseif g.Mode == "Queueing" then (if math.abs(g.GY - 1.35) < 0.2 then "NEXT IN LINE" else "IN QUEUE")
 				elseif g.Mode == "VIPChilling" then "VIP LOUNGE"
 				elseif g.IsVIP then "HIGH ROLLER"
 				else string.format("%s | %d%%", g.Mode, math.round(g.Happiness))
 			g.Status.Text = text
-			g.Status.Visible = g.IsVIP or g.IsRowdy or g.Happiness < 60 or g.Mode == "Queueing"
+			g.Status.Visible = g.IsVIP or g.IsRowdy or g.Happiness < 60 or (g.Mode == "Queueing" and math.abs(g.GY - 1.35) < 0.2)
 			g.Status.TextColor3 = if g.IsRowdy or g.Happiness < 40 then Color3.fromRGB(255, 120, 125)
 				elseif g.IsVIP then Color3.fromRGB(255, 219, 80) else Color3.fromRGB(180, 255, 206)
 			local guestFacing: "Left" | "Right" = "Right"

@@ -353,13 +353,20 @@ function SpriteAnimator.new(
 		addPart("CapWispsR", 37, 13, 9, 11, hairColor, 3, 0, bodyContainer)
 	end
 
-	-- VIP Gold Badge
+	-- VIP Gold Badge or Sparkle Aura
 	if isVIP then
 		local vipStar = addPart("VIPBadge", 25, 38, 8, 8, Color3.fromRGB(255, 215, 0), 2, 0, bodyContainer)
 		local stroke = Instance.new("UIStroke")
 		stroke.Thickness = 1
 		stroke.Color = Color3.fromRGB(255, 255, 255)
 		stroke.Parent = vipStar
+		local aura = addPart("VIPAura", 2, 0, 52, 70, Color3.fromRGB(255, 220, 90), 12, 0, bodyContainer)
+		aura.BackgroundTransparency = 0.88
+		local auraStroke = Instance.new("UIStroke")
+		auraStroke.Thickness = 1.5
+		auraStroke.Color = Color3.fromRGB(255, 225, 110)
+		auraStroke.Transparency = 0.4
+		auraStroke.Parent = aura
 	end
 
 	root.Parent = parent

@@ -30,6 +30,7 @@ local Remotes = ReplicatedStorage:WaitForChild("ClubRemotes")
 local GetStateFn = Remotes:WaitForChild("GetClubState") :: RemoteFunction
 local ActionFn = Remotes:WaitForChild("PerformClubAction") :: RemoteFunction
 local StateUpdatedEv = Remotes:WaitForChild("ClubStateUpdated") :: RemoteEvent
+local SocialFn = Remotes:WaitForChild("ClubSocial") :: RemoteFunction
 
 local CurrentState: Types.ClubState = GetStateFn:InvokeServer()
 local Guests: { Types.GuestEntity } = {}
@@ -37,10 +38,17 @@ local SpriteAnimator = require(script.Parent:WaitForChild("SpriteAnimator"))
 local GlossyUI = require(script.Parent:WaitForChild("GlossyUI"))
 local ClubArt = require(script.Parent:WaitForChild("ClubArt"))
 local HudIcons = require(script.Parent:WaitForChild("HudIcons"))
+local GuestNavigation = require(script.Parent:WaitForChild("GuestNavigation"))
+local GuestControllerModule = require(script.Parent:WaitForChild("GuestController"))
+local MusicControllerModule = require(script.Parent:WaitForChild("MusicController"))
+local SocialPanelModule = require(script.Parent:WaitForChild("SocialPanel"))
 local Animators: { [number]: Types.SpriteAnimator } = {}
 local CharacterCreator = require(script.Parent:WaitForChild("CharacterCreator"))
 local Appearance = require(Shared:WaitForChild("Appearance"))
 local CharacterEditor: Types.CharacterEditor? = nil
+local MusicController = MusicControllerModule.new()
+local SocialPanel: Types.SocialPanel? = nil
+local CrowdController: Types.GuestController? = nil
 
 -- Viewport Zoom constants
 local MIN_ZOOM = 0.5
@@ -957,31 +965,33 @@ function refreshHud()
 	end
 end
 
--- 2D Cartoon Guests Setup & Animation Loop
-for i = 1, 36 do
-	local gx = math.random(2, CurrentState.GridWidth)
-	local gy = math.random(2, CurrentState.GridHeight)
-	local color = Color3.fromHSV((i * 0.13) % 1, 0.65, 0.95)
-	local animator = SpriteAnimator.new(GuestLayer, GameConfig.GUEST_SPRITE, color, i % 5 == 0, if i == 1 then (CurrentState.Appearance or Appearance.default()) else nil)
-	Animators[i] = animator
-	local guestGui = animator.Root
+-- Authentic Nightclub City Crowd Simulation (No Object Clipping)
+local nav = GuestNavigation.new(CurrentState)
+CrowdController = GuestControllerModule.new(GuestLayer, CurrentState)
 
-	table.insert(Guests, {
-		Id = i,
-		GX = gx,
-		GY = gy,
-		TargetGX = math.random(3, CurrentState.GridWidth - 1),
-		TargetGY = math.random(3, CurrentState.GridHeight - 1),
-		Speed = 1.6 + math.random() * 0.8,
-		Happiness = 100,
-		IsVIP = (i % 5 == 0),
-		Mode = "Dancing",
-		SpriteColor = color,
-		GuiRoot = guestGui,
-	})
-end
+-- Initialize Music and Social Controllers
+MusicController.Update(CurrentState)
+SocialPanel = SocialPanelModule.new(
+	Screen,
+	CurrentState,
+	ActionFn,
+	SocialFn,
+	function(visitedState, friendId)
+		CurrentState = visitedState
+		rebuildWorld()
+		refreshHud()
+		if CrowdController then CrowdController.SetState(visitedState) end
+		if MusicController then MusicController.Update(visitedState) end
+	end,
+	function(homeState)
+		CurrentState = homeState
+		rebuildWorld()
+		refreshHud()
+		if CrowdController then CrowdController.SetState(homeState) end
+		if MusicController then MusicController.Update(homeState) end
+	end
+)
 
-local danceUntil: { [number]: number } = {}
 local hudElapsed = 0
 local lightElapsed = 0
 local renderConnection = RunService.RenderStepped:Connect(function(dt: number)
@@ -1007,40 +1017,16 @@ local renderConnection = RunService.RenderStepped:Connect(function(dt: number)
 	if hudElapsed >= 1 then
 		hudElapsed %= 1
 		refreshHud()
+		if MusicController then MusicController.Update(CurrentState) end
+		if SocialPanel then SocialPanel.Update(CurrentState) end
 	end
+
+	-- Centralized Single-Scheduler Crowd Tick
+	if CrowdController then
+		CrowdController.Update(dt)
+	end
+
 	local t = os.clock()
-	for _, g in Guests do
-		local dx = g.TargetGX - g.GX
-		local dy = g.TargetGY - g.GY
-		local dist = math.sqrt(dx * dx + dy * dy)
-		if dist < 0.1 then
-			local untilTime = danceUntil[g.Id]
-			if not untilTime then
-				danceUntil[g.Id] = t + 2 + (g.Id % 4)
-			elseif t >= untilTime then
-				danceUntil[g.Id] = nil
-				g.TargetGX = math.random(2, CurrentState.GridWidth)
-				g.TargetGY = math.random(2, CurrentState.GridHeight)
-			end
-		else
-			danceUntil[g.Id] = nil
-			local step = math.min(dist, g.Speed * math.min(dt,0.1))
-			g.GX += (dx / dist) * step
-			g.GY += (dy / dist) * step
-		end
-
-		local gui = g.GuiRoot
-		if gui then
-			local screenPos = Iso.gridToScreen(g.GX, g.GY)
-			gui.Position = UDim2.fromOffset(screenPos.X, screenPos.Y)
-			local animator = Animators[g.Id]
-			animator.Play(if dist < 0.1 then "Dance" else "Walk")
-			local screenDx = diffX - diffY
-			local guestFacing: "Left" | "Right" = if screenDx < -0.05 then "Left" elseif screenDx > 0.05 then "Right" else "Right"
-			animator.Update(dt, Iso.getZIndex(g.GX, g.GY, 5), guestFacing)
-		end
-	end
-
 	-- Ghost preview gentle breathing pulse
 	if GhostPreview.Visible then
 		GhostPreview.BackgroundTransparency = 0.35 + 0.15 * math.sin(t * 7)
@@ -1054,12 +1040,7 @@ StateUpdatedEv.OnClientEvent:Connect(function(newState: Types.ClubState)
 	local newLook = newState.Appearance or Appearance.default()
 	local changed = false
 	for name in Appearance.Limits do if (oldLook :: any)[name] ~= (newLook :: any)[name] then changed=true;break end end
-	if changed and Guests[1] then
-		local g = Guests[1]
-		Animators[1].Destroy()
-		Animators[1] = SpriteAnimator.new(GuestLayer,GameConfig.GUEST_SPRITE,g.SpriteColor,false,newLook)
-		g.GuiRoot = Animators[1].Root
-	end
+
 	local earned = newState.Cash - CurrentState.Cash
 	if earned > 0 then
 		-- State snapshots report net income, not a specific guest transaction.
@@ -1067,6 +1048,16 @@ StateUpdatedEv.OnClientEvent:Connect(function(newState: Types.ClubState)
 		GlossyUI.cashPopup(WorldCanvas, earned, Iso.gridToScreen(gx, gy), Iso.getZIndex(gx, gy, 9))
 	end
 	CurrentState = newState
+	nav = GuestNavigation.new(newState)
+	if CrowdController then
+		CrowdController.SetState(newState)
+	end
+	if MusicController then
+		MusicController.Update(newState)
+	end
+	if SocialPanel then
+		SocialPanel.Update(newState)
+	end
 	rebuildWorld()
 	refreshHud()
 	updateHoverCursor()
@@ -1075,6 +1066,9 @@ end)
 Screen.Destroying:Connect(function()
 	renderConnection:Disconnect()
 	if CharacterEditor then CharacterEditor.Destroy() end
+	if CrowdController then CrowdController.Destroy() end
+	if MusicController then MusicController.Destroy() end
+	if SocialPanel then SocialPanel.Destroy() end
 	for _, animator in Animators do animator.Destroy() end
 	table.clear(Animators)
 end)

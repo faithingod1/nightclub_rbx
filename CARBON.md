@@ -521,7 +521,12 @@ node tests/run-character.mjs "$env:TEMP/nightclub-luau-check/node_modules/luau-w
 node tests/run-pan.mjs "$env:TEMP/nightclub-luau-check/node_modules/luau-web/src/index.js"
 ```
 
-### 10.2 Building the Roblox Place File with Rojo
+### 10.2 Crowd Navigation & Anti-Clipping Architecture
+- **Centralized Client Loop:** Crowd movement and animations run through `GuestController` driven by a single `RunService.RenderStepped` loop in `ClubClient.client.luau`.
+- **Authoritative Tile Occupancy (`GuestNavigation.luau`):** Placed furniture categories (`MocktailBar`, `DJBooth`, `Speaker`, `VIPBooth`, `BouncerPost`) block grid tiles. Pathfinding routes guests strictly around solid objects via BFS.
+- **Relocation (`NearestWalkable`):** If new furniture is placed on top of an active NPC or player coordinate during build mode, the character is dynamically nudged to the closest unblocked tile without clipping through geometry.
+
+### 10.3 Building the Roblox Place File with Rojo
 ```powershell
 rojo build -o nightclub_roblox.rbxlx
 ```

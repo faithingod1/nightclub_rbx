@@ -168,21 +168,35 @@ ActionFn.OnServerInvoke = function(player: Player, action: string, payload: { [s
 		if not def then
 			return false, "Invalid item"
 		end
-		if not Rules.integer(gx, 1, state.GridWidth) or not Rules.integer(gy, 1, state.GridHeight) then
+		local rot = if Rules.integer(payload.Rot, 0, 3) then payload.Rot else 0
+		local fx = def.FootprintX
+		local fy = def.FootprintY
+		if rot % 2 ~= 0 then fx, fy = fy, fx end
+
+		if not Rules.integer(gx, 1, state.GridWidth - fx + 1) or not Rules.integer(gy, 1, state.GridHeight - fy + 1) then
 			return false, "Out of club bounds"
 		end
 		if state.Cash < def.Cost then
 			return false, "Not enough cash"
 		end
-		for _, existing in state.PlacedItems do
-			if existing.GX == gx and existing.GY == gy then
-				return false, "Tile already occupied"
+		for ix = gx, gx + fx - 1 do
+			for iy = gy, gy + fy - 1 do
+				for _, existing in state.PlacedItems do
+					local eDef = GameConfig.ITEMS[existing.ItemId]
+					local eRot = existing.Rot or 0
+					local efx = if eDef then eDef.FootprintX else 1
+					local efy = if eDef then eDef.FootprintY else 1
+					if eRot % 2 ~= 0 then efx, efy = efy, efx end
+					if ix >= existing.GX and ix < existing.GX + efx and iy >= existing.GY and iy < existing.GY + efy then
+						return false, "Tile already occupied"
+					end
+				end
 			end
 		end
 
 		state.Cash -= def.Cost
 		local uid = HttpService:GenerateGUID(false)
-		state.PlacedItems[uid] = { Uid = uid, ItemId = itemId, GX = gx, GY = gy }
+		state.PlacedItems[uid] = { Uid = uid, ItemId = itemId, GX = gx, GY = gy, Rot = rot }
 		recalculateStats(state)
 		StateUpdatedEv:FireClient(player, state)
 		return true, "Placed"
@@ -290,18 +304,36 @@ ActionFn.OnServerInvoke = function(player: Player, action: string, payload: { [s
 			return false, "Item not found"
 		end
 
-		if not Rules.integer(newGX, 1, state.GridWidth) or not Rules.integer(newGY, 1, state.GridHeight) then
+		local newRot = if Rules.integer(payload.NewRot, 0, 3) then payload.NewRot else (item.Rot or 0)
+		local def = GameConfig.ITEMS[item.ItemId]
+		local fx = if def then def.FootprintX else 1
+		local fy = if def then def.FootprintY else 1
+		if newRot % 2 ~= 0 then fx, fy = fy, fx end
+
+		if not Rules.integer(newGX, 1, state.GridWidth - fx + 1) or not Rules.integer(newGY, 1, state.GridHeight - fy + 1) then
 			return false, "Out of club bounds"
 		end
 
-		for otherUid, existing in state.PlacedItems do
-			if otherUid ~= uid and existing.GX == newGX and existing.GY == newGY then
-				return false, "Tile already occupied"
+		for ix = newGX, newGX + fx - 1 do
+			for iy = newGY, newGY + fy - 1 do
+				for otherUid, existing in state.PlacedItems do
+					if otherUid ~= uid then
+						local eDef = GameConfig.ITEMS[existing.ItemId]
+						local eRot = existing.Rot or 0
+						local efx = if eDef then eDef.FootprintX else 1
+						local efy = if eDef then eDef.FootprintY else 1
+						if eRot % 2 ~= 0 then efx, efy = efy, efx end
+						if ix >= existing.GX and ix < existing.GX + efx and iy >= existing.GY and iy < existing.GY + efy then
+							return false, "Tile already occupied"
+						end
+					end
+				end
 			end
 		end
 
 		item.GX = newGX
 		item.GY = newGY
+		item.Rot = newRot
 		recalculateStats(state)
 		StateUpdatedEv:FireClient(player, state)
 		return true, "Moved"

@@ -60,6 +60,7 @@ local CurrentMode: Types.EditMode = "None"
 local SelectedBuildItem: string? = nil
 local MovingItemUid: string? = nil
 local MovingItemId: string? = nil
+local CurrentRotation: number = 0
 
 -- UI Root ScreenGui
 local Screen = Instance.new("ScreenGui")
@@ -188,11 +189,39 @@ end
 
 local function getPlacedItemAt(gx: number, gy: number): Types.PlacedItem?
 	for _, item in CurrentState.PlacedItems do
-		if item.GX == gx and item.GY == gy then
+		local def = GameConfig.ITEMS[item.ItemId]
+		local rot = item.Rot or 0
+		local fx = if def then def.FootprintX else 1
+		local fy = if def then def.FootprintY else 1
+		if rot % 2 ~= 0 then fx, fy = fy, fx end
+		if gx >= item.GX and gx < item.GX + fx and gy >= item.GY and gy < item.GY + fy then
 			return item
 		end
 	end
 	return nil
+end
+
+local function isAreaFree(gx: number, gy: number, fx: number, fy: number, ignoreUid: string?): boolean
+	if gx < 1 or (gx + fx - 1) > CurrentState.GridWidth or gy < 1 or (gy + fy - 1) > CurrentState.GridHeight then
+		return false
+	end
+	for ix = gx, gx + fx - 1 do
+		for iy = gy, gy + fy - 1 do
+			for uid, item in CurrentState.PlacedItems do
+				if uid ~= ignoreUid then
+					local def = GameConfig.ITEMS[item.ItemId]
+					local rot = item.Rot or 0
+					local efx = if def then def.FootprintX else 1
+					local efy = if def then def.FootprintY else 1
+					if rot % 2 ~= 0 then efx, efy = efy, efx end
+					if ix >= item.GX and ix < item.GX + efx and iy >= item.GY and iy < item.GY + efy then
+						return false
+					end
+				end
+			end
+		end
+	end
+	return true
 end
 
 -- Panning state
@@ -258,12 +287,16 @@ function updateHoverCursor()
 			return
 		end
 
+		local fx = def.FootprintX
+		local fy = def.FootprintY
+		if CurrentRotation % 2 ~= 0 then fx, fy = fy, fx end
 		local canAfford = CurrentState.Cash >= def.Cost
-		local isValid = (not occupied) and canAfford
+		local areaFree = isAreaFree(gx, gy, fx, fy, nil)
+		local isValid = areaFree and canAfford
 
 		local tintColor = if isValid
 			then Color3.fromRGB(34, 197, 94)
-			elseif occupied then Color3.fromRGB(239, 68, 68)
+			elseif not areaFree then Color3.fromRGB(239, 68, 68)
 			else Color3.fromRGB(245, 158, 11)
 
 		HoverTile.Visible = true
@@ -277,7 +310,7 @@ function updateHoverCursor()
 		GhostPreview.Image = def.AssetId
 		GhostPreview.ZIndex = Iso.getZIndex(gx, gy, 9)
 		GhostStroke.Color = tintColor
-		GhostLabel.Text = def.Name
+		GhostLabel.Text = string.format("%s (R:%d)", def.Name, CurrentRotation * 90)
 
 		TooltipBadge.Visible = true
 		TooltipBadge.Position = UDim2.fromOffset(screenPos.X, screenPos.Y - (def.HeightPx * WorldScale.Scale) - 10)
@@ -286,11 +319,11 @@ function updateHoverCursor()
 		if not canAfford then
 			TooltipBadge.Text = string.format("Need $%d (Have $%d)", def.Cost, CurrentState.Cash)
 			TooltipBadge.TextColor3 = Color3.fromRGB(252, 165, 165)
-		elseif occupied then
-			TooltipBadge.Text = "Tile Already Occupied!"
+		elseif not areaFree then
+			TooltipBadge.Text = "Cannot Place (Blocked/Out of Bounds)"
 			TooltipBadge.TextColor3 = Color3.fromRGB(252, 165, 165)
 		else
-			TooltipBadge.Text = string.format("Build: %s ($%d)", def.Name, def.Cost)
+			TooltipBadge.Text = string.format("Build: %s ($%d) [Press R to Rotate]", def.Name, def.Cost)
 			TooltipBadge.TextColor3 = Color3.fromRGB(187, 247, 208)
 		end
 
@@ -320,7 +353,11 @@ function updateHoverCursor()
 			end
 		else
 			local def = if MovingItemId then GameConfig.ITEMS[MovingItemId] else nil
-			local isValid = (not occupied) or (occupied.Uid == MovingItemUid)
+			local fx = if def then def.FootprintX else 1
+			local fy = if def then def.FootprintY else 1
+			if CurrentRotation % 2 ~= 0 then fx, fy = fy, fx end
+			local areaFree = isAreaFree(gx, gy, fx, fy, MovingItemUid)
+			local isValid = areaFree
 			local tintColor = if isValid then Color3.fromRGB(34, 197, 94) else Color3.fromRGB(239, 68, 68)
 
 			HoverTile.Visible = true
@@ -335,12 +372,12 @@ function updateHoverCursor()
 				GhostPreview.Image = def.AssetId
 				GhostPreview.ZIndex = Iso.getZIndex(gx, gy, 9)
 				GhostStroke.Color = tintColor
-				GhostLabel.Text = "Moving: " .. def.Name
+				GhostLabel.Text = string.format("Moving: %s (R:%d)", def.Name, CurrentRotation * 90)
 
 				TooltipBadge.Visible = true
 				TooltipBadge.Position = UDim2.fromOffset(screenPos.X, screenPos.Y - (def.HeightPx * WorldScale.Scale) - 10)
 				TooltipStroke.Color = tintColor
-				TooltipBadge.Text = if isValid then "Click to Relocate Here" else "Tile Occupied!"
+				TooltipBadge.Text = if isValid then "Click to Relocate [R to Rotate]" else "Tile Blocked/Out of Bounds!"
 				TooltipBadge.TextColor3 = if isValid then Color3.fromRGB(187, 247, 208) else Color3.fromRGB(252, 165, 165)
 			else
 				GhostPreview.Visible = false
@@ -471,29 +508,42 @@ Backdrop.InputBegan:Connect(function(input: InputObject)
 		local occupied = getPlacedItemAt(gx, gy)
 
 		if CurrentMode == "Build" and SelectedBuildItem then
-			if not occupied then
+			local def = GameConfig.ITEMS[SelectedBuildItem]
+			local fx = if def then def.FootprintX else 1
+			local fy = if def then def.FootprintY else 1
+			if CurrentRotation % 2 ~= 0 then fx, fy = fy, fx end
+			if isAreaFree(gx, gy, fx, fy, nil) then
 				local buildItem = SelectedBuildItem
+				local rot = CurrentRotation
 				task.spawn(function()
-					ActionFn:InvokeServer("PlaceItem", { ItemId = buildItem, GX = gx, GY = gy })
+					ActionFn:InvokeServer("PlaceItem", { ItemId = buildItem, GX = gx, GY = gy, Rot = rot })
 				end)
 			end
 		elseif CurrentMode == "Move" then
 			if MovingItemUid == nil and occupied then
 				MovingItemUid = occupied.Uid
 				MovingItemId = occupied.ItemId
+				CurrentRotation = occupied.Rot or 0
 				rebuildWorld()
 				updateHoverCursor()
 				refreshHud()
-			elseif MovingItemUid ~= nil and (not occupied or occupied.Uid == MovingItemUid) then
-				local uidToMove = MovingItemUid
-				MovingItemUid = nil
-				MovingItemId = nil
-				task.spawn(function()
-					ActionFn:InvokeServer("MoveItem", { Uid = uidToMove, NewGX = gx, NewGY = gy })
-				end)
-				rebuildWorld()
-				updateHoverCursor()
-				refreshHud()
+			elseif MovingItemUid ~= nil then
+				local def = if MovingItemId then GameConfig.ITEMS[MovingItemId] else nil
+				local fx = if def then def.FootprintX else 1
+				local fy = if def then def.FootprintY else 1
+				if CurrentRotation % 2 ~= 0 then fx, fy = fy, fx end
+				if isAreaFree(gx, gy, fx, fy, MovingItemUid) then
+					local uidToMove = MovingItemUid
+					local rotToMove = CurrentRotation
+					MovingItemUid = nil
+					MovingItemId = nil
+					task.spawn(function()
+						ActionFn:InvokeServer("MoveItem", { Uid = uidToMove, NewGX = gx, NewGY = gy, NewRot = rotToMove })
+					end)
+					rebuildWorld()
+					updateHoverCursor()
+					refreshHud()
+				end
 			end
 		elseif CurrentMode == "Remove" and occupied then
 			local uidToRemove = occupied.Uid
@@ -533,6 +583,11 @@ UserInputService.InputBegan:Connect(function(input: InputObject, gameProcessed: 
 	end
 	if not gameProcessed and input.KeyCode == Enum.KeyCode.Escape then
 		setMode("None")
+	elseif not gameProcessed and input.KeyCode and input.KeyCode == (Enum.KeyCode :: any).R then
+		if CurrentMode == "Build" or CurrentMode == "Move" then
+			CurrentRotation = ((CurrentRotation or 0) + 1) % 4
+			updateHoverCursor()
+		end
 	end
 end)
 
@@ -819,9 +874,8 @@ makeDockButton("DJRefresh", "🎵 Refresh Set ($50)", Color3.fromRGB(147, 51, 23
 end)
 
 makeDockButton("DJBass", "💥 DROP BASS!", Color3.fromRGB(236, 72, 153), 102, function()
-	for _, g in Guests do
-		g.TargetGX = 2
-		g.TargetGY = 3
+	if CrowdController then
+		CrowdController.Rally()
 	end
 	ActionFn:InvokeServer("TriggerDJSkill", { Skill = "DropTheBass" })
 end)
@@ -931,8 +985,26 @@ end
 -- Refresh HUD and Instruction Sub-Banner
 function refreshHud()
 	SubBanner.Visible = CurrentMode ~= "None"
-	local setRemaining = math.max(0, CurrentState.DJSetEndsAt - os.time())
-	ZoomLabel.Text = string.format("%d%%", math.round(currentZoom * 100))
+	local now = os.time()
+	local refreshCd = math.max(0, (CurrentState.SkillCooldowns.RefreshSet or 0) - now)
+	local bassCd = math.max(0, (CurrentState.SkillCooldowns.DropTheBass or 0) - now)
+	local shoutCd = math.max(0, (CurrentState.SkillCooldowns.MicShoutout or 0) - now)
+
+	local bRefresh = DockButtons["DJRefresh"]
+	if bRefresh then
+		local cap = bRefresh:FindFirstChildWhichIsA("TextLabel")
+		if cap then cap.Text = if refreshCd > 0 then string.format("%ds", refreshCd) else "DJ Set" end
+	end
+	local bBass = DockButtons["DJBass"]
+	if bBass then
+		local cap = bBass:FindFirstChildWhichIsA("TextLabel")
+		if cap then cap.Text = if bassCd > 0 then string.format("%ds", bassCd) else "Bass Drop" end
+	end
+	local bShout = DockButtons["DJShout"]
+	if bShout then
+		local cap = bShout:FindFirstChildWhichIsA("TextLabel")
+		if cap then cap.Text = if shoutCd > 0 then string.format("%ds", shoutCd) else "Shoutout" end
+	end
 
 	StatLabels[1].Text = string.format("CASH\n$%d", CurrentState.Cash)
 	StatLabels[2].Text = string.format("POPULARITY\n%d", CurrentState.Popularity)

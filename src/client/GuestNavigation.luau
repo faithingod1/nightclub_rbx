@@ -44,8 +44,12 @@ function GuestNavigation.buildGrid(
 	for _, placed in placedItems do
 		local def: ItemDef? = GameConfig.ITEMS[placed.ItemId]
 		if def and SOLID_CATEGORIES[def.Category] then
+			local rot = placed.Rot or 0
 			local fx = math.max(1, def.FootprintX)
 			local fy = math.max(1, def.FootprintY)
+			if rot % 2 ~= 0 then
+				fx, fy = fy, fx
+			end
 			for ix = placed.GX, placed.GX + fx - 1 do
 				for iy = placed.GY, placed.GY + fy - 1 do
 					if ix >= 1 and ix <= width and iy >= 1 and iy <= height then

@@ -25,6 +25,7 @@ export type PlacedItem = {
 	ItemId: string,
 	GX: number,
 	GY: number,
+	Rot: number?,
 }
 
 export type CelebrityVisit = {

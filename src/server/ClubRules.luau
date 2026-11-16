@@ -73,16 +73,20 @@ function Rules.decode(raw: any): Types.ClubState?
 	for uid, item in raw.PlacedItems do
 		if typeof(uid) ~= "string" or #uid > 100 or typeof(item) ~= "table" then return nil end
 		local def = Config.ITEMS[item.ItemId]
-		if not def or not Rules.integer(item.GX, 1, state.GridWidth - def.FootprintX + 1)
-			or not Rules.integer(item.GY, 1, state.GridHeight - def.FootprintY + 1) then return nil end
-		for x = item.GX, item.GX + def.FootprintX - 1 do
-			for y = item.GY, item.GY + def.FootprintY - 1 do
+		local rot = if Rules.integer(item.Rot, 0, 3) then item.Rot else 0
+		local fx = def.FootprintX
+		local fy = def.FootprintY
+		if rot % 2 ~= 0 then fx, fy = fy, fx end
+		if not def or not Rules.integer(item.GX, 1, state.GridWidth - fx + 1)
+			or not Rules.integer(item.GY, 1, state.GridHeight - fy + 1) then return nil end
+		for x = item.GX, item.GX + fx - 1 do
+			for y = item.GY, item.GY + fy - 1 do
 				local key = x .. ":" .. y
 				if occupied[key] then return nil end
 				occupied[key] = true
 			end
 		end
-		state.PlacedItems[uid] = { Uid = uid, ItemId = item.ItemId, GX = item.GX, GY = item.GY }
+		state.PlacedItems[uid] = { Uid = uid, ItemId = item.ItemId, GX = item.GX, GY = item.GY, Rot = rot }
 	end
 	if typeof(raw.SkillCooldowns) == "table" then
 		for skill in state.SkillCooldowns do
